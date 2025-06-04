@@ -232,6 +232,7 @@ def web_server(arg):
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
             if user["passwd"] != passwd: return Response(status=403)
+            if not user["admin"]: return Response(status=403)
         
         server.add_channel(name, logo, url)
         
@@ -251,6 +252,7 @@ def web_server(arg):
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
             if user["passwd"] != passwd: return Response(status=403)
+            if not user["admin"]: return Response(status=403)
         
         server.remove_channel(name, id)
         
@@ -268,6 +270,7 @@ def web_server(arg):
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
             if user["passwd"] != passwd: return Response(status=403)
+            if not user["admin"]: return Response(status=403)
         
         for m_url in config["ministra_urls"]:
             if m_url["url"] == url:
@@ -290,6 +293,7 @@ def web_server(arg):
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
             if user["passwd"] != passwd: return Response(status=403)
+            if not user["admin"]: return Response(status=403)
         
         config["ministra_urls"].append({
             "url": url,
