@@ -7,6 +7,7 @@ import _thread
 import random
 import subprocess
 import os
+import hashlib
 
 servers = []
 config = {}
@@ -219,31 +220,54 @@ def web_server(arg):
     @app.route("/server/<server_id>/add_channel")
     def add_channel(server_id):
         server = servers[int(server_id)]
+        username = request.headers.get("username", None)
+        passwd = hashlib.sha256(bytes(request.headers.get("passwd", None))).hexdigest()
+        name = request.args.get("name", None)
+        logo = request.args.get("logo", None)
+        url = request.args.get("url", None)
         
-        if request.args.get("name", None) == None or request.args.get("logo", None) == None or request.args.get("url", None) == None or type(server) != Server:
+        if name == None or logo == None or url == None or username == None or passwd == None or type(server) != Server:
             return Response(status=400)
         
-        server.add_channel(request.args["name"], request.args["logo"], request.args["url"])
+        for user in config["users"]:
+            if user["username"] != username: return Response(status=403)
+            if user["passwd"] != passwd: return Response(status=403)
+        
+        server.add_channel(name, logo, url)
         
         return Response(status=200)
     
     @app.route("/server/<server_id>/remove_channel")
-    def add_channel(server_id):
+    def remove_channel(server_id):
         server = servers[int(server_id)]
+        username = request.headers.get("username", None)
+        passwd = hashlib.sha256(bytes(request.headers.get("passwd", None))).hexdigest()
+        name = request.args.get("name", None)
+        id = request.args.get("id", None)
         
-        if (request.args.get("name", None) == None and request.args.get("id", None) == None) or type(server) != Server:
+        if (name == None and id == None) or username == None or passwd == None or type(server) != Server:
             return Response(status=400)
         
-        server.remove_channel(request.args.get("name", None), request.args.get("id", None))
+        for user in config["users"]:
+            if user["username"] != username: return Response(status=403)
+            if user["passwd"] != passwd: return Response(status=403)
+        
+        server.remove_channel(name, id)
         
         return Response(status=200)
     
     @app.route("/server/remove_ministra_url")
     def remove_ministra():
-        url = request.args["url"]
+        url = request.args.get("url", None)
+        username = request.headers.get("username", None)
+        passwd = hashlib.sha256(bytes(request.headers.get("passwd", None))).hexdigest()
         
-        if url == None:
+        if url == None or username == None or passwd == None:
             return Response(status=400)
+        
+        for user in config["users"]:
+            if user["username"] != username: return Response(status=403)
+            if user["passwd"] != passwd: return Response(status=403)
         
         for m_url in config["ministra_urls"]:
             if m_url["url"] == url:
@@ -257,9 +281,15 @@ def web_server(arg):
     @app.route("/server/add_ministra_url")
     def add_ministra():
         url = request.args["url"]
+        username = request.headers.get("username", None)
+        passwd = hashlib.sha256(bytes(request.headers.get("passwd", None))).hexdigest()
         
-        if url == None:
+        if url == None or username == None or passwd == None:
             return Response(status=400)
+        
+        for user in config["users"]:
+            if user["username"] != username: return Response(status=403)
+            if user["passwd"] != passwd: return Response(status=403)
         
         config["ministra_urls"].append({
             "url": url,
