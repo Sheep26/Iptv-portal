@@ -1,4 +1,4 @@
-from flask import Flask, redirect, request, Response
+from flask import Flask, redirect, request, Response, session
 import requests
 import datetime
 import time
@@ -42,7 +42,7 @@ class Server:
         
         dump_config()
     
-    def handle_play(self, channel_id, filename=None):
+    def handle_play(self, channel_id, sessions, filename=None):
         for channel in self.channels:
             if channel["id"] == channel_id:
                 # Proxy the stream
@@ -132,17 +132,36 @@ class MinistraServer:
             print(f"Request failed: {e}")
             return False
     
-    def handle_play(self, channel, filename=None):
+    def handle_play(self, channel, sessions, filename=None):
         print(f"Request for channnel {channel} on server {self.url}")
+        already_watching = False
         
-        while True:
-            mac = random.choice(self.mac_addrs)
-            print(f"Trying mac {mac}")
-            
-            mac_free = self.mac_free(mac["addr"])
-            if mac_free:
-                print(f"Found mac: {mac}.")
+        for x in sessions:
+            if x["session_id"] == session["session_id"]:
+                already_watching = True
+                mac = x["mac"]
+                print(f"Session {session["session_id"]} is already using mac {mac}")
                 break
+        
+        if not already_watching or not self.mac_free(mac["addr"]):
+            while True:
+                mac = random.choice(self.mac_addrs)
+                print(f"Trying mac {mac}")
+                
+                mac_free = self.mac_free(mac["addr"])
+                if mac_free:
+                    print(f"Found mac: {mac}.")
+                    break
+            
+            if already_watching:
+                for x in sessions:
+                    if x["session_id"] == session["session_id"]:
+                        sessions.remove(x)
+            
+            sessions.append({
+                "session_id": session["session_id"],
+                "mac": mac
+            })
         
         stream_url = f"{self.url}/play/live.php?mac={mac['addr']}&stream={channel}&extension=ts"
         # Proxy the stream
@@ -190,8 +209,10 @@ def mcbash(url):
 
 def web_server(arg):
     app = Flask(__name__)
+    app.secret_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
     template_dir = os.path.abspath(f"{config_dir}/templates")
     
+    login_sessions = []
     sessions = []
     
     @app.route("/api/login")
@@ -205,9 +226,9 @@ def web_server(arg):
             admin = user["admin"]
             break
         
-        session_id = random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        session_id = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         
-        sessions.append({
+        login_sessions.append({
             "session_id": session_id,
             "username": username,
             "admin": admin
@@ -217,11 +238,11 @@ def web_server(arg):
     
     @app.route("/api/logout")
     def logout():
-        session = request.headers["session"]
+        session_id = request.headers.get("session_id", None)
         
-        for session in sessions:
-            if session["session_id"] == session:
-                sessions.remove(session)
+        for login_session in login_sessions:
+            if login_session["session_id"] == session_id:
+                login_sessions.remove(login_session)
         
         return Response(status=200)
     
@@ -254,13 +275,13 @@ def web_server(arg):
     @app.route("/server/<server_id>/add_channel")
     def add_channel(server_id):
         server = servers[int(server_id)]
-        session_id = request.headers.get("session", None)
+        session_id = request.headers.get("session_id", None)
         name = request.args.get("name", None)
         logo = request.args.get("logo", None)
         url = request.args.get("url", None)
         
-        for session in sessions:
-            if session["session_id"] == session_id and session["admin"]:
+        for login_session in login_sessions:
+            if login_session["session_id"] == session_id and login_session["admin"]:
                 server.add_channel(name, logo, url)
                 
                 return Response(status=200)
@@ -270,12 +291,12 @@ def web_server(arg):
     @app.route("/server/<server_id>/remove_channel")
     def remove_channel(server_id):
         server = servers[int(server_id)]
-        session_id = request.headers.get("session", None)
+        session_id = request.headers.get("session_id", None)
         name = request.args.get("name", None)
         id = request.args.get("id", None)
         
-        for session in sessions:
-            if session["session_id"] == session_id and session["admin"]:
+        for login_session in login_sessions:
+            if login_session["session_id"] == session_id and login_session["admin"]:
                 server.remove_channel(name, id)
         
                 return Response(status=200)
@@ -285,10 +306,10 @@ def web_server(arg):
     @app.route("/server/remove_ministra_url")
     def remove_ministra():
         url = request.args.get("url", None)
-        session_id = request.headers.get("session", None)
+        session_id = request.headers.get("session_id", None)
         
-        for session in sessions:
-            if session["session_id"] == session_id and session["admin"]:
+        for login_session in login_sessions:
+            if login_session["session_id"] == session_id and login_session["admin"]:
                 for m_url in config["ministra_urls"]:
                     if m_url["url"] == url:
                         config["ministra_urls"].remove(m_url)
@@ -303,10 +324,10 @@ def web_server(arg):
     @app.route("/server/add_ministra_url")
     def add_ministra():
         url = request.args["url"]
-        session_id = request.headers.get("session", None)
+        session_id = request.headers.get("session_id", None)
         
-        for session in sessions:
-            if session["session_id"] == session_id and session["admin"]:
+        for login_session in login_sessions:
+            if login_session["session_id"] == session_id and login_session["admin"]:
                 config["ministra_urls"].append({
                     "url": url,
                     "mcbash_file": f"/root/.mcbash/valid_macs_{url.split('/')[2]}" if os.getlogin() == "root" else f"/home/{os.getlogin()}/.mcbash/valid_macs_{url.split('/')[2]}",
@@ -334,7 +355,9 @@ def web_server(arg):
     
     @app.route("/play/<server>/<channel>")
     def play(server, channel):
-        return servers[int(server)].handle_play(channel)
+        if session.get("session_id", None) == None:
+            session["session_id"] = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        return servers[int(server)].handle_play(channel, sessions)
     
     app.run("0.0.0.0", 8080)
 
@@ -351,7 +374,7 @@ def main():
     global config
     global config_dir
     
-    debug = False
+    debug = True
     config_dir = ("/etc/iptv" if os.system != "nt" else f"{os.environ['appdata']}/iptv") if not debug else "./"
     print(f"Config dir: {config_dir}")
     print(f"Config file {config_dir}/config.json")
