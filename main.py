@@ -140,7 +140,7 @@ class MinistraServer:
             if x["session_id"] == session["session_id"]:
                 already_watching = True
                 mac = x["mac"]
-                print(f"Session {session["session_id"]} is already using mac {mac}")
+                print(f"Session {session['session_id']} is already using mac {mac}")
                 break
         
         if not already_watching or not self.mac_free(mac["addr"]):
