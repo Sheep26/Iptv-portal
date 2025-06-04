@@ -207,7 +207,7 @@ def web_server(arg):
     def add_channel(server_id):
         server = servers[int(server_id)]
         
-        if request.args["name"] == None or request.args["logo"] == None or request.args["url"] == None or type(server) != Server:
+        if request.args.get("name", None) == None or request.args.get("logo", None) == None or request.args.get("url", None) == None or type(server) != Server:
             return Response(status=400)
         
         server.add_channel(request.args["name"], request.args["logo"], request.args["url"])
