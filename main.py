@@ -27,10 +27,16 @@ class Server:
         
         dump_config()
     
-    def remove_channel(self, name):
+    def remove_channel(self, name=None, id=None):
         for channel in self.channels:
-            if channel["name"] == name:
-                config["channels"].remove(channel)
+            if name != None:
+                if channel["name"] == name:
+                    config["channels"].remove(channel)
+                    break
+            if id != None:
+                if channel["id"] == id:
+                    config["channels"].remove(channel)
+                    break
         
         dump_config()
     
@@ -225,10 +231,26 @@ def web_server(arg):
     def add_channel(server_id):
         server = servers[int(server_id)]
         
-        if request.args.get("name", None) == None or type(server) != Server:
+        if (request.args.get("name", None) == None and request.args.get("id", None) == None) or type(server) != Server:
             return Response(status=400)
         
-        server.remove_channel(request.args["name"])
+        server.remove_channel(request.args.get("name", None), request.args.get("id", None))
+        
+        return Response(status=200)
+    
+    @app.route("/server/remove_ministra_url")
+    def remove_ministra():
+        url = request.args["url"]
+        
+        if url == None:
+            return Response(status=400)
+        
+        for m_url in config["ministra_urls"]:
+            if m_url["url"] == url:
+                config["ministra_urls"].remove(m_url)
+                break
+        
+        dump_config()
         
         return Response(status=200)
     
