@@ -27,6 +27,13 @@ class Server:
         
         dump_config()
     
+    def remove_channel(self, name):
+        for channel in self.channels:
+            if channel["name"] == name:
+                config["channels"].remove(channel)
+        
+        dump_config()
+    
     def handle_play(self, channel_id, filename=None):
         for channel in self.channels:
             if channel["id"] == channel_id:
@@ -211,6 +218,17 @@ def web_server(arg):
             return Response(status=400)
         
         server.add_channel(request.args["name"], request.args["logo"], request.args["url"])
+        
+        return Response(status=200)
+    
+    @app.route("/server/<server_id>/remove_channel")
+    def add_channel(server_id):
+        server = servers[int(server_id)]
+        
+        if request.args.get("name", None) == None or type(server) != Server:
+            return Response(status=400)
+        
+        server.remove_channel(request.args["name"])
         
         return Response(status=200)
     
