@@ -221,7 +221,7 @@ def web_server(arg):
     def add_channel(server_id):
         server = servers[int(server_id)]
         username = request.headers.get("username", None)
-        passwd = hashlib.sha256(bytes(request.headers.get("passwd", None))).hexdigest()
+        passwd = request.headers.get("passwd", None)
         name = request.args.get("name", None)
         logo = request.args.get("logo", None)
         url = request.args.get("url", None)
@@ -231,7 +231,7 @@ def web_server(arg):
         
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
-            if user["passwd"] != passwd: return Response(status=403)
+            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
             if not user["admin"]: return Response(status=403)
         
         server.add_channel(name, logo, url)
@@ -242,7 +242,7 @@ def web_server(arg):
     def remove_channel(server_id):
         server = servers[int(server_id)]
         username = request.headers.get("username", None)
-        passwd = hashlib.sha256(bytes(request.headers.get("passwd", None))).hexdigest()
+        passwd = request.headers.get("passwd", None)
         name = request.args.get("name", None)
         id = request.args.get("id", None)
         
@@ -251,7 +251,7 @@ def web_server(arg):
         
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
-            if user["passwd"] != passwd: return Response(status=403)
+            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
             if not user["admin"]: return Response(status=403)
         
         server.remove_channel(name, id)
@@ -262,14 +262,14 @@ def web_server(arg):
     def remove_ministra():
         url = request.args.get("url", None)
         username = request.headers.get("username", None)
-        passwd = hashlib.sha256(bytes(request.headers.get("passwd", None))).hexdigest()
+        passwd = request.headers.get("passwd", None)
         
         if url == None or username == None or passwd == None:
             return Response(status=400)
         
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
-            if user["passwd"] != passwd: return Response(status=403)
+            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
             if not user["admin"]: return Response(status=403)
         
         for m_url in config["ministra_urls"]:
@@ -285,14 +285,14 @@ def web_server(arg):
     def add_ministra():
         url = request.args["url"]
         username = request.headers.get("username", None)
-        passwd = hashlib.sha256(bytes(request.headers.get("passwd", None))).hexdigest()
+        passwd = request.headers.get("passwd", None)
         
         if url == None or username == None or passwd == None:
             return Response(status=400)
         
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
-            if user["passwd"] != passwd: return Response(status=403)
+            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
             if not user["admin"]: return Response(status=403)
         
         config["ministra_urls"].append({
