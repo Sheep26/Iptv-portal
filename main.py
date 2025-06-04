@@ -27,10 +27,19 @@ class Server:
         
         dump_config()
     
-    def handle_play(self, channel_id):
+    def handle_play(self, channel_id, filename=None):
         for channel in self.channels:
             if channel["id"] == channel_id:
-                return redirect(channel["url"])
+                # Proxy the stream
+                def generate():
+                    with requests.get(channel["url"], stream=True) as r:
+                        for chunk in r.iter_content(chunk_size=4096):
+                            if chunk:
+                                yield chunk
+                response = Response(generate(), mimetype='video/mp2t')
+                if filename:
+                    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
         
         return None
 
@@ -108,7 +117,7 @@ class MinistraServer:
             print(f"Request failed: {e}")
             return False
     
-    def handle_play(self, channel):
+    def handle_play(self, channel, filename=None):
         print(f"Request for channnel {channel} on server {self.url}")
         
         while True:
@@ -120,7 +129,17 @@ class MinistraServer:
                 print(f"Found mac: {mac}.")
                 break
         
-        return redirect(f"{self.url}/play/live.php?mac={mac['addr']}&stream={channel}&extension=ts")
+        stream_url = f"{self.url}/play/live.php?mac={mac['addr']}&stream={channel}&extension=ts"
+        # Proxy the stream
+        def generate():
+            with requests.get(stream_url, stream=True) as r:
+                for chunk in r.iter_content(chunk_size=4096):
+                    if chunk:
+                        yield chunk
+        response = Response(generate(), mimetype='video/mp2t')
+        if filename:
+            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
         mac_addrs = []
