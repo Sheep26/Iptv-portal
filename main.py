@@ -37,7 +37,7 @@ class Server:
 class MinistraServer:
     def __init__(self, url, id, mcbash_file=None):
         self.url = url
-        self.mcbash_file = mcbash_file if mcbash_file != None else (f"/root/.mcbash/valid_macs_{url.split("/")[2]}" if os.getlogin() == "root" else f"/home/{os.getlogin()}/.mcbash/valid_macs_{url.split("/")[2]}")
+        self.mcbash_file = mcbash_file if mcbash_file != None else (f"/root/.mcbash/valid_macs_{url.split('/')[2]}" if os.getlogin() == "root" else f"/home/{os.getlogin()}/.mcbash/valid_macs_{url.split('/')[2]}")
         self.mac_addrs = None
         self.channels = None
         self.id = id
@@ -193,11 +193,14 @@ def web_server(arg):
     
     @app.route("/server/add_ministra_url")
     def add_ministra():
-        if request.args["url"] == None:
+        url = request.args["url"]
+        
+        if url == None:
             return Response(status=400)
         
         config["ministra_urls"].append({
-            "url": request.args["url"],
+            "url": url,
+            "mcbash_file": f"/root/.mcbash/valid_macs_{url.split('/')[2]}" if os.getlogin() == "root" else f"/home/{os.getlogin()}/.mcbash/valid_macs_{url.split('/')[2]}",
             "run_mcbash": True,
         })
         
@@ -240,8 +243,9 @@ def main():
     if not os.path.exists(config_dir):
         os.mkdir(config_dir)
     if not os.path.exists(f"{config_dir}/config.json"):
-        print("Config missing.")
-        exit(1)
+        print("Config missing, creating.")
+        config = {"ministra_urls": [], "channels": []}
+        dump_config()
     
     config = read_config()
     servers = setup_servers()
