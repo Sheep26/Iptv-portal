@@ -8,6 +8,7 @@ import random
 import subprocess
 import os
 import hashlib
+import string
 
 servers = []
 config = {}
@@ -191,6 +192,39 @@ def web_server(arg):
     app = Flask(__name__)
     template_dir = os.path.abspath(f"{config_dir}/templates")
     
+    sessions = []
+    
+    @app.route("/api/login")
+    def login():
+        username = request.args["username"]
+        passwd = request.args["passwd"]
+        
+        for user in config["users"]:
+            if user["username"] != username: return Response(status=403)
+            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
+            admin = user["admin"]
+            break
+        
+        session_id = random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        
+        sessions.append({
+            "session_id": session_id,
+            "username": username,
+            "admin": admin
+        })
+        
+        return session_id
+    
+    @app.route("/api/logout")
+    def logout():
+        session = request.headers["session"]
+        
+        for session in sessions:
+            if session["session_id"] == session:
+                sessions.remove(session)
+        
+        return Response(status=200)
+    
     @app.route("/server/<server>/get_channels")
     def get_channels(server):
         return servers[int(server)].channels
@@ -220,90 +254,70 @@ def web_server(arg):
     @app.route("/server/<server_id>/add_channel")
     def add_channel(server_id):
         server = servers[int(server_id)]
-        username = request.headers.get("username", None)
-        passwd = request.headers.get("passwd", None)
+        session_id = request.headers.get("session", None)
         name = request.args.get("name", None)
         logo = request.args.get("logo", None)
         url = request.args.get("url", None)
         
-        if name == None or logo == None or url == None or username == None or passwd == None or type(server) != Server:
-            return Response(status=400)
+        for session in sessions:
+            if session["session_id"] == session_id and session["admin"]:
+                server.add_channel(name, logo, url)
+                
+                return Response(status=200)
         
-        for user in config["users"]:
-            if user["username"] != username: return Response(status=403)
-            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
-            if not user["admin"]: return Response(status=403)
-        
-        server.add_channel(name, logo, url)
-        
-        return Response(status=200)
+        return Response(status=403)
     
     @app.route("/server/<server_id>/remove_channel")
     def remove_channel(server_id):
         server = servers[int(server_id)]
-        username = request.headers.get("username", None)
-        passwd = request.headers.get("passwd", None)
+        session_id = request.headers.get("session", None)
         name = request.args.get("name", None)
         id = request.args.get("id", None)
         
-        if (name == None and id == None) or username == None or passwd == None or type(server) != Server:
-            return Response(status=400)
+        for session in sessions:
+            if session["session_id"] == session_id and session["admin"]:
+                server.remove_channel(name, id)
         
-        for user in config["users"]:
-            if user["username"] != username: return Response(status=403)
-            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
-            if not user["admin"]: return Response(status=403)
+                return Response(status=200)
         
-        server.remove_channel(name, id)
-        
-        return Response(status=200)
+        return Response(status=403)
     
     @app.route("/server/remove_ministra_url")
     def remove_ministra():
         url = request.args.get("url", None)
-        username = request.headers.get("username", None)
-        passwd = request.headers.get("passwd", None)
+        session_id = request.headers.get("session", None)
         
-        if url == None or username == None or passwd == None:
-            return Response(status=400)
+        for session in sessions:
+            if session["session_id"] == session_id and session["admin"]:
+                for m_url in config["ministra_urls"]:
+                    if m_url["url"] == url:
+                        config["ministra_urls"].remove(m_url)
+                        break
+                
+                dump_config()
+                
+                return Response(status=200)
         
-        for user in config["users"]:
-            if user["username"] != username: return Response(status=403)
-            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
-            if not user["admin"]: return Response(status=403)
-        
-        for m_url in config["ministra_urls"]:
-            if m_url["url"] == url:
-                config["ministra_urls"].remove(m_url)
-                break
-        
-        dump_config()
-        
-        return Response(status=200)
+        return Response(status=403)
     
     @app.route("/server/add_ministra_url")
     def add_ministra():
         url = request.args["url"]
-        username = request.headers.get("username", None)
-        passwd = request.headers.get("passwd", None)
+        session_id = request.headers.get("session", None)
         
-        if url == None or username == None or passwd == None:
-            return Response(status=400)
+        for session in sessions:
+            if session["session_id"] == session_id and session["admin"]:
+                config["ministra_urls"].append({
+                    "url": url,
+                    "mcbash_file": f"/root/.mcbash/valid_macs_{url.split('/')[2]}" if os.getlogin() == "root" else f"/home/{os.getlogin()}/.mcbash/valid_macs_{url.split('/')[2]}",
+                    "run_mcbash": True,
+                })
+                
+                dump_config()
+                
+                return Response(status=200)
         
-        for user in config["users"]:
-            if user["username"] != username: return Response(status=403)
-            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
-            if not user["admin"]: return Response(status=403)
-        
-        config["ministra_urls"].append({
-            "url": url,
-            "mcbash_file": f"/root/.mcbash/valid_macs_{url.split('/')[2]}" if os.getlogin() == "root" else f"/home/{os.getlogin()}/.mcbash/valid_macs_{url.split('/')[2]}",
-            "run_mcbash": True,
-        })
-        
-        dump_config()
-        
-        return Response(status=200)
+        return Response(status=403)
     
     @app.route("/server/<server>/get_m3u")
     def get_m3u(server):
