@@ -235,7 +235,7 @@ def main():
     global config
     global config_dir
     
-    debug = True
+    debug = False
     config_dir = ("/etc/iptv" if os.system != "nt" else f"{os.environ['appdata']}/iptv") if not debug else "./"
     print(f"Config dir: {config_dir}")
     print(f"Config file {config_dir}/config.json")
