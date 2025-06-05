@@ -49,7 +49,7 @@ class Server:
                             if chunk:
                                 yield chunk
                 
-                response = Response(generate()) # , mimetype='video/mp2t'
+                response = Response(generate(), mimetype='video/mp2t')
                 
                 return response
         
@@ -160,15 +160,18 @@ class MinistraServer:
                 "mac": mac
             })
         
+        time.sleep(1)
         stream_url = f"{self.url}/play/live.php?mac={mac['addr']}&stream={channel}&extension=ts"
         # Proxy the stream
         def generate():
             with requests.get(stream_url, stream=True) as r:
+                if r.status_code != 200:
+                    print(f"Status code {r.status_code}")
                 for chunk in r.iter_content(chunk_size=4096):
                     if chunk:
                         yield chunk
         
-        response = Response(generate()) # , mimetype='video/mp2t'
+        response = Response(generate(), mimetype='video/mp2t')
         
         return response
         #return redirect(stream_url)
