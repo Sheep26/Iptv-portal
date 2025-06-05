@@ -39,19 +39,21 @@ class Server:
                     config["channels"].remove(channel)
                     break
     
-    def handle_play(self, channel_id, sessions, filename=None):
+    def handle_play(self, channel_id, sessions, proxy, filename=None):
         for channel in self.channels:
             if channel["id"] == channel_id:
-                #return redirect(channel["url"])
                 def generate():
                     with requests.get(channel["url"], stream=True) as r:
                         for chunk in r.iter_content(chunk_size=4096):
                             if chunk:
                                 yield chunk
                 
-                response = Response(generate(), mimetype='video/mp2t')
-                
-                return response
+                if proxy==1:
+                    response = Response(generate(), mimetype='video/mp2t')
+                    
+                    return response
+                else:
+                    return redirect(channel["url"])
         
         return None
 
@@ -129,7 +131,7 @@ class MinistraServer:
             print(f"Request failed: {e}")
             return False
     
-    def handle_play(self, channel, sessions, filename=None):
+    def handle_play(self, channel, sessions, proxy, filename=None):
         print(f"Request for channnel {channel} on server {self.url}")
         already_watching = False
         
@@ -171,10 +173,12 @@ class MinistraServer:
                     if chunk:
                         yield chunk
         
-        response = Response(generate(), mimetype='video/mp2t')
-        
-        return response
-        #return redirect(stream_url)
+        if proxy==1:
+            response = Response(generate(), mimetype='video/mp2t')
+            
+            return response
+        else:
+            return redirect(stream_url)
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
         mac_addrs = []
@@ -364,7 +368,7 @@ def web_server(arg):
     def play(server, channel):
         if session.get("session_id", None) == None:
             session["session_id"] = rand_str(32)
-        return servers[int(server)].handle_play(channel, stream_sessions)
+        return servers[int(server)].handle_play(channel, stream_sessions, request.args.get("proxy", 1))
     
     app.run("0.0.0.0", 8080)
 
