@@ -27,8 +27,6 @@ class Server:
             "logo": logo,
             "url": url,
         })
-        
-        dump_config()
     
     def remove_channel(self, name=None, id=None):
         for channel in self.channels:
@@ -40,8 +38,6 @@ class Server:
                 if channel["id"] == id:
                     config["channels"].remove(channel)
                     break
-        
-        dump_config()
     
     def handle_play(self, channel_id, sessions, filename=None):
         for channel in self.channels:
@@ -212,7 +208,7 @@ def mcbash(url):
 
 def web_server(arg):
     app = Flask(__name__)
-    app.secret_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+    app.secret_key = rand_str(32)
     template_dir = os.path.abspath(f"{config_dir}/templates")
     
     login_sessions = []
@@ -226,18 +222,17 @@ def web_server(arg):
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
             if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
-            admin = user["admin"]
-            break
         
-        session_id = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+            session_id = rand_str(32)
+            
+            login_sessions.append({
+                "session_id": session_id,
+                "user": user,
+            })
+            
+            return session_id
         
-        login_sessions.append({
-            "session_id": session_id,
-            "username": username,
-            "admin": admin
-        })
-        
-        return session_id
+        return Response(status=403)
     
     @app.route("/api/logout")
     def logout():
@@ -246,8 +241,19 @@ def web_server(arg):
         for login_session in login_sessions:
             if login_session["session_id"] == session_id:
                 login_sessions.remove(login_session)
+                return Response(status=200)
         
-        return Response(status=200)
+        return Response(status=403)
+    
+    @app.route("/api/get_user")
+    def get_user():
+        session_id = request.headers.get("session_id", None)
+        
+        for login_session in login_sessions:
+            if login_session["session_id"] == session_id:
+                return login_session["user"]
+        
+        return Response(status=403)
     
     @app.route("/server/<server>/get_channels")
     def get_channels(server):
@@ -284,7 +290,7 @@ def web_server(arg):
         url = request.args.get("url", None)
         
         for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["admin"]:
+            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
                 server.add_channel(name, logo, url)
                 
                 return Response(status=200)
@@ -299,7 +305,7 @@ def web_server(arg):
         id = request.args.get("id", None)
         
         for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["admin"]:
+            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
                 server.remove_channel(name, id)
         
                 return Response(status=200)
@@ -312,13 +318,11 @@ def web_server(arg):
         session_id = request.headers.get("session_id", None)
         
         for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["admin"]:
+            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
                 for m_url in config["ministra_urls"]:
                     if m_url["url"] == url:
                         config["ministra_urls"].remove(m_url)
                         break
-                
-                dump_config()
                 
                 return Response(status=200)
         
@@ -330,14 +334,12 @@ def web_server(arg):
         session_id = request.headers.get("session_id", None)
         
         for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["admin"]:
+            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
                 config["ministra_urls"].append({
                     "url": url,
                     "mcbash_file": f"/root/.mcbash/valid_macs_{url.split('/')[2]}" if os.getlogin() == "root" else f"/home/{os.getlogin()}/.mcbash/valid_macs_{url.split('/')[2]}",
                     "run_mcbash": True,
                 })
-                
-                dump_config()
                 
                 return Response(status=200)
 
@@ -359,16 +361,20 @@ def web_server(arg):
     @app.route("/play/<server>/<channel>")
     def play(server, channel):
         if session.get("session_id", None) == None:
-            session["session_id"] = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+            session["session_id"] = rand_str(32)
         return servers[int(server)].handle_play(channel, stream_sessions)
     
     app.run("0.0.0.0", 8080)
+
+def rand_str(len = 32):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=len))
 
 def read_config():
     with open(f"{config_dir}/config.json", "r") as f:
         return json.load(f)
 
 def dump_config():
+    print(f"Saving config to {config_dir}/config.json")
     with open(f"{config_dir}/config.json", "w") as f:
         return json.dump(config, f)
 
@@ -386,11 +392,23 @@ def main():
         os.mkdir(config_dir)
     if not os.path.exists(f"{config_dir}/config.json"):
         print("Config missing, creating.")
-        config = {"ministra_urls": [], "channels": []}
+        config = {"ministra_urls": [], "channels": [], "users": []}
+        
         dump_config()
     
+    # Setup.
     config = read_config()
     servers = setup_servers()
+    
+    # Check if there are any users, if none create one.
+    if len(config["users"]) == 0:
+        print("No users configured.")
+        print("Creating user admin.")
+        passwd = rand_str(32)
+        print(f"Admin passwd: {passwd}")
+        config["users"].append({"username": "admin", "passwd": hashlib.sha256(bytes(passwd.encode())).hexdigest(), "last_watched": None, "admin": True})
+
+        dump_config()
     
     _thread.start_new_thread(web_server, (0 ,))
     
@@ -404,6 +422,8 @@ def main():
             if type(server) == MinistraServer:
                 server.update_macs()
                 server.update_channels()
+        
+        dump_config()
 
 if __name__ == "__main__": #/root/.mcbash/valid_macs_ledir.thund.re
     main()
