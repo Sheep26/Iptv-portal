@@ -215,7 +215,7 @@ def web_server(arg):
     template_dir = os.path.abspath(f"{config_dir}/templates")
     
     login_sessions = []
-    sessions = []
+    stream_sessions = []
     
     @app.route("/api/login")
     def login():
@@ -359,7 +359,7 @@ def web_server(arg):
     def play(server, channel):
         if session.get("session_id", None) == None:
             session["session_id"] = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
-        return servers[int(server)].handle_play(channel, sessions)
+        return servers[int(server)].handle_play(channel, stream_sessions)
     
     app.run("0.0.0.0", 8080)
 
