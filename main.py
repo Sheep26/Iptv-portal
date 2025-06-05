@@ -42,17 +42,16 @@ class Server:
     def handle_play(self, channel_id, sessions, filename=None):
         for channel in self.channels:
             if channel["id"] == channel_id:
-                return redirect(channel["url"])
-                """# Proxy the stream
+                #return redirect(channel["url"])
                 def generate():
                     with requests.get(channel["url"], stream=True) as r:
                         for chunk in r.iter_content(chunk_size=4096):
                             if chunk:
                                 yield chunk
-                response = Response(generate(), mimetype='video/mp2t')
-                if filename:
-                    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
-                return response"""
+                
+                response = Response(generate()) # , mimetype='video/mp2t'
+                
+                return response
         
         return None
 
@@ -163,16 +162,16 @@ class MinistraServer:
         
         stream_url = f"{self.url}/play/live.php?mac={mac['addr']}&stream={channel}&extension=ts"
         # Proxy the stream
-        """def generate():
+        def generate():
             with requests.get(stream_url, stream=True) as r:
                 for chunk in r.iter_content(chunk_size=4096):
                     if chunk:
                         yield chunk
-        response = Response(generate(), mimetype='video/mp2t')
-        if filename:
-            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response"""
-        return redirect(stream_url)
+        
+        response = Response(generate()) # , mimetype='video/mp2t'
+        
+        return response
+        #return redirect(stream_url)
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
         mac_addrs = []
