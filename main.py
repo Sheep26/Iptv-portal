@@ -142,6 +142,11 @@ class MinistraServer:
                 break
         
         if not already_watching or not self.mac_free(mac["addr"]):
+            if already_watching:
+                for x in sessions:
+                    if x["session_id"] == session["session_id"]:
+                        sessions.remove(x)
+            
             while True:
                 mac = random.choice(self.mac_addrs)
                 print(f"Trying mac {mac}")
@@ -150,11 +155,6 @@ class MinistraServer:
                 if mac_free:
                     print(f"Found mac: {mac}.")
                     break
-            
-            if already_watching:
-                for x in sessions:
-                    if x["session_id"] == session["session_id"]:
-                        sessions.remove(x)
             
             sessions.append({
                 "session_id": session["session_id"],
