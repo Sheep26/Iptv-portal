@@ -275,7 +275,7 @@ def web_server(arg):
                     if not search.lower() in channel["name"].lower():
                         continue
                 file_content += f"\n#EXTINF:-1 tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
-                file_content += f"\n{'https' if config["https"] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{server.id}/{channel['id']}"
+                file_content += f"\n{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{server.id}/{channel['id']}"
         return Response(file_content, mimetype='text/plain')
 
     @app.route("/server/get_channels")
