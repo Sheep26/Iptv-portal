@@ -39,7 +39,7 @@ class Server:
                     config["channels"].remove(channel)
                     break
     
-    def handle_play(self, channel_id, stream_sessions, session_id, proxy, filename=None):
+    def handle_play(self, channel_id, session_id, proxy, filename=None):
         for channel in self.channels:
             if channel["id"] == channel_id:
                 def generate():
@@ -128,23 +128,19 @@ class MinistraServer:
             print(f"Request failed: {e}")
             return False
     
-    def handle_play(self, channel, stream_sessions, session_id, proxy):
+    def handle_play(self, channel, session_id, proxy):
         print(f"Request for channnel {channel} on server {self.url}")
-        already_watching = False
         user_session = None
         
         for stream_session in stream_sessions:
             if stream_session["session_id"] == session_id:
-                already_watching = True
                 user_session = stream_session
                 print(f"Session {session_id} is already using mac {user_session['mac']['addr']}")
                 break
         
-        if not already_watching or not self.mac_free(user_session['mac']['addr'], user_session['session']):
-            if already_watching:
-                for stream_session in stream_sessions:
-                    if stream_session["session_id"] == session_id:
-                        stream_sessions.remove(stream_session)
+        if user_session == None or not self.mac_free(user_session['mac']['addr'], user_session['session']):
+            if user_session != None:
+                stream_sessions.remove(user_session)
             
             print(f"Starting session {session_id}")
             
@@ -162,10 +158,13 @@ class MinistraServer:
             user_session = {
                 "session_id": session_id,
                 "mac": mac,
-                "session": req_session
+                "session": req_session,
+                "timestamp": time.time()
             }
             
             stream_sessions.append(user_session)
+        
+        user_session["timestamp"] = time.time()
         
         time.sleep(1)
         stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension=ts"
@@ -218,6 +217,8 @@ def mcbash(url):
         time.sleep(60)
 
 def web_server(arg):
+    global stream_sessions
+    global login_sessions
     app = Flask(__name__)
     app.secret_key = rand_str(32)
     template_dir = os.path.abspath(f"{config_dir}/templates")
@@ -373,7 +374,7 @@ def web_server(arg):
     def play(server, channel):
         if session.get("session_id", None) == None:
             session["session_id"] = rand_str(32)
-        return servers[int(server)].handle_play(channel, stream_sessions, session["session_id"], request.args.get("proxy", 1))
+        return servers[int(server)].handle_play(channel, session["session_id"], request.args.get("proxy", 1))
     
     app.run("0.0.0.0", 8080)
 
@@ -433,10 +434,15 @@ def main():
     
     while True:
         time.sleep(60*60) # Update every hour.
+        
         for server in servers:
             if type(server) == MinistraServer:
                 server.update_macs()
                 server.update_channels()
+
+        for stream_session in stream_sessions:
+            if time.time() - stream_session["timestamp"] > 60*60*24*7: # Delete sessions that haven't been used in a week.
+                stream_sessions.remove(stream_session)
         
         dump_config()
 
