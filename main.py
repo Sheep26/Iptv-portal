@@ -411,6 +411,10 @@ def main():
     config = read_config()
     servers = setup_servers()
     
+    for mcbash_file in config["ministra_urls"]:
+        if not os.path.exists(mcbash_file["mcbash_file"]):
+            os.system(f"touch {mcbash_file["mcbash_file"]}" if os.name != "nt" else "")
+    
     # Check if there are any users, if none create one.
     if len(config["users"]) == 0:
         print("No users configured.")
