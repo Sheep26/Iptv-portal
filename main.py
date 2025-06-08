@@ -39,7 +39,7 @@ class Server:
                     config["channels"].remove(channel)
                     break
     
-    def handle_play(self, channel_id, sessions, proxy, filename=None):
+    def handle_play(self, channel_id, stream_sessions, session_id, proxy, filename=None):
         for channel in self.channels:
             if channel["id"] == channel_id:
                 def generate():
@@ -120,50 +120,58 @@ class MinistraServer:
         request = self.session.get(f"{self.url}/portal.php?action=handshake&type=stb&token=&mac={mac.replace(':', '%3A')}")
         return json.loads(request.text)["js"]["token"] if request.status_code == 200 else None
 
-    def mac_free(self, mac):
+    def mac_free(self, mac, session=requests.Session()):
         try:
-            with self.session.get(f"{self.url}/play/live.php?mac={mac}&stream={self.channels[0]['id']}&extension=ts", stream=True) as response:
+            with session.get(f"{self.url}/play/live.php?mac={mac}&stream={self.channels[0]['id']}&extension=ts", stream=True) as response:
                 return response.status_code == 200
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
             return False
     
-    def handle_play(self, channel, sessions, proxy, filename=None):
+    def handle_play(self, channel, stream_sessions, session_id, proxy):
         print(f"Request for channnel {channel} on server {self.url}")
         already_watching = False
+        user_session = None
         
-        for x in sessions:
-            if x["session_id"] == session["session_id"]:
+        for stream_session in stream_sessions:
+            if stream_session["session_id"] == session_id:
                 already_watching = True
-                mac = x["mac"]
-                print(f"Session {session['session_id']} is already using mac {mac}")
+                user_session = stream_session
+                print(f"Session {session_id} is already using mac {user_session['mac']['addr']}")
                 break
         
-        if not already_watching or not self.mac_free(mac["addr"]):
+        if not already_watching or not self.mac_free(user_session['mac']['addr'], user_session['session']):
             if already_watching:
-                for x in sessions:
-                    if x["session_id"] == session["session_id"]:
-                        sessions.remove(x)
+                for stream_session in stream_sessions:
+                    if stream_session["session_id"] == session_id:
+                        stream_sessions.remove(stream_session)
+            
+            print(f"Starting session {session_id}")
+            
+            req_session = requests.Session()
             
             while True:
                 mac = random.choice(self.mac_addrs)
                 print(f"Trying mac {mac}")
                 
-                mac_free = self.mac_free(mac["addr"])
+                mac_free = self.mac_free(mac["addr"], req_session)
                 if mac_free:
                     print(f"Found mac: {mac}.")
                     break
             
-            sessions.append({
-                "session_id": session["session_id"],
-                "mac": mac
-            })
+            user_session = {
+                "session_id": session_id,
+                "mac": mac,
+                "session": req_session
+            }
+            
+            stream_sessions.append(user_session)
         
         time.sleep(1)
-        stream_url = f"{self.url}/play/live.php?mac={mac['addr']}&stream={channel}&extension=ts"
+        stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension=ts"
         # Proxy the stream
         def generate():
-            with self.session.get(stream_url, stream=True) as r:
+            with user_session['session'].get(stream_url, stream=True) as r:
                 if r.status_code != 200:
                     print(f"Status code {r.status_code}")
                 for chunk in r.iter_content(chunk_size=4096):
@@ -365,7 +373,7 @@ def web_server(arg):
     def play(server, channel):
         if session.get("session_id", None) == None:
             session["session_id"] = rand_str(32)
-        return servers[int(server)].handle_play(channel, stream_sessions, request.args.get("proxy", 1))
+        return servers[int(server)].handle_play(channel, stream_sessions, session["session_id"], request.args.get("proxy", 1))
     
     app.run("0.0.0.0", 8080)
 
