@@ -64,6 +64,7 @@ class MinistraServer:
         self.mac_addrs = None
         self.channels = None
         self.id = id
+        self.session = requests.Session()
         
         self.setup()
     
@@ -87,15 +88,13 @@ class MinistraServer:
             "Cookie": f"mac={mac}; stb_lang=en; timezone=Europe/Amsterdam; "
         }
         
-        channel_request = requests.get(f"{self.url}/server/load.php?type=itv&action=get_all_channels", headers=headers)
+        channel_request = self.session.get(f"{self.url}/server/load.php?type=itv&action=get_all_channels", headers=headers)
         if channel_request.status_code == 200:
-            channels = json.loads(channel_request.text)
-        
-        self.mac_addrs = self.mac_addrs
-        self.channels = channels["js"]["data"]
+            self.channels = json.loads(channel_request.text)["js"]["data"]
+            print(f"Recieved channel list for {self.url}")
+            print(f"{self.url} has {len(self.channels)} channels.")
         
         print(f"Setup for {self.url} complete")
-        print(f"{self.url} has {len(self.channels)} channels.")
     
     def update_macs(self):
         self.mac_addrs = self.get_macs_from_mcbash(self.mcbash_file)
@@ -112,20 +111,18 @@ class MinistraServer:
             "Cookie": f"mac={mac}; stb_lang=en; timezone=Europe/Amsterdam; "
         }
         
-        channel_request = requests.get(f"{self.url}/server/load.php?type=itv&action=get_all_channels", headers=headers)
+        channel_request = self.session.get(f"{self.url}/server/load.php?type=itv&action=get_all_channels", headers=headers)
         if channel_request.status_code == 200:
-            channels = json.loads(channel_request.text)
-            self.channels = channels["js"]["data"]
-        
-        print(f"{self.url} has {len(self.channels)} channels.")
+            self.channels = json.loads(channel_request.text)["js"]["data"]
+            print(f"{self.url} has {len(self.channels)} channels.")
 
     def get_handshake(self, mac):
-        request = requests.get(f"{self.url}/portal.php?action=handshake&type=stb&token=&mac={mac.replace(':', '%3A')}")
+        request = self.session.get(f"{self.url}/portal.php?action=handshake&type=stb&token=&mac={mac.replace(':', '%3A')}")
         return json.loads(request.text)["js"]["token"] if request.status_code == 200 else None
 
     def mac_free(self, mac):
         try:
-            with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={self.channels[0]['id']}&extension=ts", stream=True) as response:
+            with self.session.get(f"{self.url}/play/live.php?mac={mac}&stream={self.channels[0]['id']}&extension=ts", stream=True) as response:
                 return response.status_code == 200
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
@@ -166,7 +163,7 @@ class MinistraServer:
         stream_url = f"{self.url}/play/live.php?mac={mac['addr']}&stream={channel}&extension=ts"
         # Proxy the stream
         def generate():
-            with requests.get(stream_url, stream=True) as r:
+            with self.session.get(stream_url, stream=True) as r:
                 if r.status_code != 200:
                     print(f"Status code {r.status_code}")
                 for chunk in r.iter_content(chunk_size=4096):
