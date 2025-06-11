@@ -8,12 +8,12 @@ WORKDIR /app
 RUN apt update
 RUN apt upgrade -y
 RUN apt install python3-pip -y
-RUN apt install gcc
-RUN apt install make
-RUN apt install bash
-RUN apt install curl
-RUN apt install wget
-RUN apt install git
+RUN apt install gcc -y
+RUN apt install make -y
+RUN apt install bash -y
+RUN apt install curl -y
+RUN apt install wget -y
+RUN apt install git -y
 RUN git clone https://github.com/dougy147/mcbash
 RUN cd ./mcbash
 RUN make install
