@@ -7,8 +7,9 @@ WORKDIR /app
 
 RUN apt update
 RUN apt upgrade -y
-RUN apt install python3-requests -y
-RUN apt install python3-flask -y
+RUN apt install python3-pip -y
+RUN pip install flask -y
+RUN pip install requests -y
 
 COPY . .
 
