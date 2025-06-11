@@ -8,8 +8,8 @@ WORKDIR /app
 RUN apt update
 RUN apt upgrade -y
 RUN apt install python3-pip -y
-RUN pip install flask -y
-RUN pip install requests -y
+RUN pip install flask
+RUN pip install requests
 
 COPY . .
 
