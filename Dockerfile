@@ -15,9 +15,8 @@ RUN apt install curl -y
 RUN apt install wget -y
 RUN apt install git -y
 RUN git clone https://github.com/dougy147/mcbash
-RUN cd ./mcbash
+RUN mv ./mcbash/* ./
 RUN make install
-RUN cd ../
 
 RUN pip install flask
 RUN pip install requests
