@@ -212,8 +212,10 @@ def setup_servers():
 
 def mcbash(url):
     while-True:
+        print("Starting mcbash.")
         proc = subprocess.Popen(f"mcbash -u {url} -w 2 -b 10 -d 2 -s 0 -t 0 --prefix 00:1A:79", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         proc.wait()
+        print("Mcbash finished.")
         time.sleep(60)
 
 def web_server(arg):
