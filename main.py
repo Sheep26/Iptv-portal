@@ -435,7 +435,7 @@ def main():
             _thread.start_new_thread(mcbash, (entry["url"] ,))
     
     while True:
-        time.sleep(60*60) # Update every hour.
+        time.sleep(60*60*24) # Update every day.
         
         for server in servers:
             if type(server) == MinistraServer:
