@@ -351,7 +351,7 @@ def web_server(arg):
             if login_session["session_id"] == session_id and login_session["user"]["admin"]:
                 config["ministra_urls"].append({
                     "url": url,
-                    "mcbash_file": f"/root/.mcbash/valid_macs_{url.split('/')[2]}" if os.getlogin() == "root" else f"/home/{os.getlogin()}/.mcbash/valid_macs_{url.split('/')[2]}",
+                    "mcbash_file": f"{os.getenv("HOME")}/.mcbash/valid_macs_{url.split('/')[2]}",
                     "run_mcbash": True,
                 })
                 
