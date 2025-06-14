@@ -180,17 +180,9 @@ class MinistraServer:
         if proxy==1:
             response = Response(generate(), mimetype='video/mp2t')
             
-            if config["Access-Control-Allow-Origin"] != None:
-                response.headers["Access-Control-Allow-Origin"] = config["Access-Control-Allow-Origin"]
-            
             return response
         else:
-            response = redirect(stream_url)
-            
-            if config["Access-Control-Allow-Origin"] != None:
-                response.headers["Access-Control-Allow-Origin"] = config["Access-Control-Allow-Origin"]
-            
-            return response
+            return redirect(stream_url)
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
         mac_addrs = []
