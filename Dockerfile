@@ -20,7 +20,6 @@ RUN make install
 
 RUN pip install flask
 RUN pip install requests
-RUN pip install flask-cors
 
 COPY . .
 
