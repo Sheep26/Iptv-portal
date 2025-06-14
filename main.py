@@ -1,4 +1,5 @@
 from flask import Flask, redirect, request, Response, session
+from flask_cors import CORS
 import requests
 import datetime
 import time
@@ -222,6 +223,7 @@ def web_server(arg):
     global stream_sessions
     global login_sessions
     app = Flask(__name__)
+    CORS(app)
     app.secret_key = rand_str(32)
     template_dir = os.path.abspath(f"{config_dir}/templates")
     
