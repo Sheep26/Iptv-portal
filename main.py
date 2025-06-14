@@ -51,9 +51,17 @@ class Server:
                 if proxy==1:
                     response = Response(generate(), mimetype='video/mp2t')
                     
+                    if config["Access-Control-Allow-Origin"] != None:
+                        response.headers["Access-Control-Allow-Origin"] = config["Access-Control-Allow-Origin"]
+                    
                     return response
                 else:
-                    return redirect(channel["url"])
+                    response = redirect(channel["url"])
+                    
+                    if config["Access-Control-Allow-Origin"] != None:
+                        response.headers["Access-Control-Allow-Origin"] = config["Access-Control-Allow-Origin"]
+                        
+                    return response
         
         return None
 
