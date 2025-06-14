@@ -80,7 +80,7 @@ class MinistraServer:
         handshake = None
         
         while handshake == None:
-            mac = self.mac_addrs[0]["addr"]
+            mac = random.choice(self.mac_addrs)["addr"]
             handshake = self.get_handshake(mac)
         
         print(f"Token: {handshake}")
