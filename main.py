@@ -60,7 +60,7 @@ class Server:
 class MinistraServer:
     def __init__(self, url, id, mcbash_file=None):
         self.url = url
-        self.mcbash_file = mcbash_file if mcbash_file != None else (f"/root/.mcbash/valid_macs_{url.split('/')[2]}" if os.getlogin() == "root" else f"/home/{os.getlogin()}/.mcbash/valid_macs_{url.split('/')[2]}")
+        self.mcbash_file = mcbash_file if mcbash_file != None else f"{os.getenv("HOME")}/.mcbash/valid_macs_{url.split('/')[2]}"
         self.mac_addrs = None
         self.channels = None
         self.id = id
