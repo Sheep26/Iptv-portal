@@ -53,7 +53,9 @@ class Server:
                     
                     return response
                 else:
-                    return redirect(channel["url"])
+                    response = redirect(channel["url"])
+                    
+                    return response
         
         return None
 
@@ -182,7 +184,9 @@ class MinistraServer:
             
             return response
         else:
-            return redirect(stream_url)
+            response = redirect(stream_url)
+            
+            return response
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
         mac_addrs = []
