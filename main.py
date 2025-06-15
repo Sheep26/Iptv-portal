@@ -380,7 +380,7 @@ def web_server(arg):
     def play(server, channel):
         if session.get("session_id", None) == None:
             session["session_id"] = rand_str(32)
-        return servers[int(server)].handle_play(channel, session["session_id"], request.args.get("proxy", 0))
+        return servers[int(server)].handle_play(channel, session["session_id"], request.args.get("proxy", 1))
     
     app.run("0.0.0.0", 8080)
 
