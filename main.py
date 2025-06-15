@@ -1,4 +1,4 @@
-from flask import Flask, redirect, request, Response, session
+from flask import Flask, redirect, request, Response, session, stream_with_context
 import requests
 import datetime
 import time
@@ -49,7 +49,7 @@ class Server:
                                 yield chunk
                 
                 if proxy==1:
-                    response = Response(generate(), mimetype='video/mp2t')
+                    response = Response(stream_with_context(generate()), mimetype='video/mp2t')
                     
                     return response
                 else:
@@ -180,7 +180,7 @@ class MinistraServer:
                         yield chunk
         
         if proxy==1:
-            response = Response(generate(), mimetype='video/mp2t')
+            response = Response(stream_with_context(generate()), mimetype='video/mp2t')
             
             return response
         else:
