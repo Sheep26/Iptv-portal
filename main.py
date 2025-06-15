@@ -180,7 +180,7 @@ class MinistraServer:
                         yield chunk
         
         if proxy==1:
-            response = Response(stream_with_context(generate()), mimetype='video/mp2t')
+            response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
             
             return response
         else:
