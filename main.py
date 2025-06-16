@@ -40,8 +40,30 @@ class Server:
                     break
     
     def handle_play(self, channel_id, session_id, proxy, filename=None):
+        user_session = None
+        
+        for stream_session in stream_sessions:
+            if stream_session["session_id"] == session_id:
+                user_session = stream_session
+                break
+        
+        if user_session == None:
+            req_session = requests.Session()
+            
+            user_session = {
+                "session_id": session_id,
+                "mac": None,
+                "session": req_session,
+                "timestamp": time.time()
+            }
+            
+            stream_sessions.append(user_session)
+        else: pass
+        
         for channel in self.channels:
             if channel["id"] == channel_id:
+                user_session["timestamp"] = time.time()
+                
                 def generate():
                     with requests.get(channel["url"], stream=True) as r:
                         for chunk in r.iter_content(chunk_size=4096):
@@ -49,7 +71,7 @@ class Server:
                                 yield chunk
                 
                 if proxy==1:
-                    response = Response(stream_with_context(generate()), mimetype='video/mp2t')
+                    response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
                     
                     return response
                 else:
@@ -57,7 +79,7 @@ class Server:
                     
                     return response
         
-        return None
+        return Response(status=500)
 
 class IPTVServer:
     def __init__(self, url, id, mcbash_file=None):
@@ -302,31 +324,35 @@ def web_server(arg):
     @app.route("/server/<server_id>/add_channel")
     def add_channel(server_id):
         server = servers[int(server_id)]
-        session_id = request.headers.get("session_id", None)
-        name = request.args.get("name", None)
-        logo = request.args.get("logo", None)
-        url = request.args.get("url", None)
-        
-        for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                server.add_channel(name, logo, url)
-                
-                return Response(status=200)
+        if type(server) == Server:
+            session_id = request.headers.get("session_id", None)
+            name = request.args.get("name", None)
+            logo = request.args.get("logo", None)
+            url = request.args.get("url", None)
+            
+            for login_session in login_sessions:
+                if login_session["session_id"] == session_id and login_session["user"]["admin"]:
+                    server.add_channel(name, logo, url)
+                    
+                    return Response(status=200)
+        else: return Response(status=500)
         
         return Response(status=403)
     
     @app.route("/server/<server_id>/remove_channel")
     def remove_channel(server_id):
         server = servers[int(server_id)]
-        session_id = request.headers.get("session_id", None)
-        name = request.args.get("name", None)
-        id = request.args.get("id", None)
-        
-        for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                server.remove_channel(name, id)
-        
-                return Response(status=200)
+        if type(server) == Server:
+            session_id = request.headers.get("session_id", None)
+            name = request.args.get("name", None)
+            id = request.args.get("id", None)
+            
+            for login_session in login_sessions:
+                if login_session["session_id"] == session_id and login_session["user"]["admin"]:
+                    server.remove_channel(name, id)
+            
+                    return Response(status=200)
+        else: return Response(status=500)
         
         return Response(status=403)
     
