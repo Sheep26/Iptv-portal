@@ -81,13 +81,14 @@ class Server:
         return Response(status=500)
 
 class IPTVServer:
-    def __init__(self, url, id, mcbash_file=None):
+    def __init__(self, url, id, mcbash_file=None, run_mcbash=True):
         self.url = url
         self.mcbash_file = mcbash_file if mcbash_file != None else f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2]}"
         self.mac_addrs = None
         self.channels = None
         self.id = id
         self.session = requests.Session()
+        self.run_mcbash = run_mcbash
         
         self.setup()
     
@@ -239,22 +240,28 @@ def setup_servers():
                     break
         
         if not found:
-            servers.append(IPTVServer(entry["url"], len(servers), entry.get("mcbash_file", None)))
+            servers.append(IPTVServer(entry["url"], len(servers), entry.get("mcbash_file", None), entry.get("run_mcbash", True)))
+    
+    for server in servers:
+        if type(server) == IPTVServer:
+            if not os.path.exists(server.mcbash_file):
+                os.system(f"touch {server.mcbash_file}" if os.name != "nt" else "")
+    
+    # Stop all existing processes.
+    for proc in mcbash_processes:
+        proc.terminate()
+        mcbash_processes.remove(proc)
 
-def mcbash(url):
-    while-True:
-        print("Starting mcbash.")
-        proc = subprocess.Popen(f"mcbash -u {url} -w 2 -b 10 -d 2 -s 0 -t 0 --prefix 00:1A:79", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        proc.wait()
-        print("Mcbash finished.")
-        time.sleep(60)
+    for server in servers:
+        if type(server) == IPTVServer:
+            if server.run_mcbash:
+                mcbash_processes.append(subprocess.Popen(f"mcbash -u {server.url} -w 2 -b 10 -d 2 -s 0 -t 0 --prefix 00:1A:79", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
 
 def web_server():
     global stream_sessions
     global login_sessions
     app = Flask(__name__)
     app.secret_key = rand_str(32)
-    template_dir = os.path.abspath(f"{config_dir}/templates")
     
     login_sessions = []
     stream_sessions = []
@@ -381,7 +388,8 @@ def web_server():
     @app.route("/server/add_iptv_server")
     def add_iptv_server():
         url = request.args["url"]
-        session_id = request.headers.get("session_id", None)
+        print(request.headers)
+        session_id = request.headers.get("session", None)
         
         for login_session in login_sessions:
             if login_session["session_id"] == session_id and login_session["user"]["admin"]:
@@ -392,9 +400,6 @@ def web_server():
                 }
                 
                 config["iptv_servers"].append(server)
-                
-                os.system(f"touch {server['mcbash_file']}")
-                
                 setup_servers()
                 
                 return Response(status=200)
@@ -438,6 +443,7 @@ def main():
     global servers
     global config
     global config_dir
+    global mcbash_processes
     
     debug = "--debug" in sys.argv
     config_dir = ("/etc/iptv" if os.system != "nt" else f"{os.environ['appdata']}/iptv") if not debug else "./"
@@ -454,13 +460,10 @@ def main():
     
     # Setup.
     servers = []
+    mcbash_processes = []
     config = read_config()
     
     setup_servers()
-    
-    for mcbash_file in config["iptv_servers"]:
-        if not os.path.exists(mcbash_file["mcbash_file"]):
-            os.system(f"touch {mcbash_file['mcbash_file']}" if os.name != "nt" else "")
     
     # Check if there are any users, if none create one.
     if len(config["users"]) == 0:
@@ -474,10 +477,6 @@ def main():
     
     webserver_thread = threading.Thread(target=web_server, daemon=True)
     webserver_thread.start()
-    
-    for entry in config["iptv_servers"]:
-        if entry["run_mcbash"]:
-            threading.Thread(target=mcbash, args=(entry["url"],), daemon=True).start()
     
     while True:
         time.sleep(60*60*24) # Update every day.
