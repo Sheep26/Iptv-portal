@@ -58,14 +58,13 @@ class Server:
             }
             
             stream_sessions.append(user_session)
-        else: pass
         
         for channel in self.channels:
             if channel["id"] == channel_id:
                 user_session["timestamp"] = time.time()
                 
                 def generate():
-                    with requests.get(channel["url"], stream=True) as r:
+                    with user_session["session"].get(channel["url"], stream=True) as r:
                         for chunk in r.iter_content(chunk_size=4096):
                             if chunk:
                                 yield chunk
