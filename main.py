@@ -330,7 +330,7 @@ def web_server(arg):
         
         return Response(status=403)
     
-    @app.route("/server/remove_iptv_server_url")
+    @app.route("/server/remove_iptv_server")
     def remove_iptv_server():
         url = request.args.get("url", None)
         session_id = request.headers.get("session_id", None)
@@ -346,7 +346,7 @@ def web_server(arg):
         
         return Response(status=403)
     
-    @app.route("/server/add_iptv_server_url")
+    @app.route("/server/add_iptv_server")
     def add_iptv_server():
         url = request.args["url"]
         session_id = request.headers.get("session_id", None)
