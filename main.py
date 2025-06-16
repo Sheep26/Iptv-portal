@@ -385,11 +385,15 @@ def web_server():
         
         for login_session in login_sessions:
             if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                config["iptv_servers"].append({
+                server = {
                     "url": url,
                     "mcbash_file": f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2]}",
                     "run_mcbash": True,
-                })
+                }
+                
+                config["iptv_servers"].append(server)
+                
+                os.system(f"touch {server['mcbash_file']}")
                 
                 setup_servers()
                 
