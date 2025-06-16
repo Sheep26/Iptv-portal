@@ -3,7 +3,7 @@ import requests
 import datetime
 import time
 import json
-import _thread
+import threading
 import random
 import subprocess
 import os
@@ -243,7 +243,7 @@ def mcbash(url):
         print("Mcbash finished.")
         time.sleep(60)
 
-def web_server(arg):
+def web_server():
     global stream_sessions
     global login_sessions
     app = Flask(__name__)
@@ -453,15 +453,16 @@ def main():
         print("Creating user admin.")
         passwd = rand_str(32)
         print(f"Admin passwd: {passwd}")
-        config["users"].append({"username": "admin", "passwd": hashlib.sha256(bytes(passwd.encode())).hexdigest(), "last_watched": None, "admin": True})
+        config["users"].append({"username": "admin", "passwd": hashlib.sha256(bytes(passwd.encode())).hexdigest(), "admin": True})
 
         dump_config()
     
-    _thread.start_new_thread(web_server, (0 ,))
+    webserver_thread = threading.Thread(target=web_server, daemon=True)
+    webserver_thread.start()
     
     for entry in config["iptv_servers"]:
         if entry["run_mcbash"]:
-            _thread.start_new_thread(mcbash, (entry["url"] ,))
+            threading.Thread(target=mcbash, args=(entry["url"],), daemon=True).start()
     
     while True:
         time.sleep(60*60*24) # Update every day.
@@ -472,7 +473,7 @@ def main():
                 server.update_channels()
 
         for stream_session in stream_sessions:
-            if time.time() - stream_session["timestamp"] > 60*60*24*7: # Delete sessions that haven't been used in a week.
+            if time.time() - stream_session["timestamp"] > 60*60*24: # Delete sessions that haven't been used in a day.
                 stream_sessions.remove(stream_session)
         
         dump_config()
