@@ -261,8 +261,8 @@ def web_server():
     
     @app.route("/api/login")
     def login():
-        username = request.args["username"]
-        passwd = request.args["passwd"]
+        username = request.headers.get("username", None)
+        passwd = request.headers.get("passwd", None)
         
         for user in config["users"]:
             if user["username"] != username: return Response(status=403)
