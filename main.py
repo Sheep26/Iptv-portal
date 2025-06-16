@@ -59,7 +59,7 @@ class Server:
         
         return None
 
-class MinistraServer:
+class IPTVServer:
     def __init__(self, url, id, mcbash_file=None):
         self.url = url
         self.mcbash_file = mcbash_file if mcbash_file != None else f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2]}"
@@ -209,8 +209,8 @@ def setup_servers():
     x = []
     x.append(Server(len(x)))
     
-    for entry in config["ministra_urls"]:
-        x.append(MinistraServer(entry["url"], len(x), entry.get("mcbash_file", None)))
+    for entry in config["iptv_servers"]:
+        x.append(IPTVServer(entry["url"], len(x), entry.get("mcbash_file", None)))
     
     return x
 
@@ -330,30 +330,30 @@ def web_server(arg):
         
         return Response(status=403)
     
-    @app.route("/server/remove_ministra_url")
-    def remove_ministra():
+    @app.route("/server/remove_iptv_server_url")
+    def remove_iptv_server():
         url = request.args.get("url", None)
         session_id = request.headers.get("session_id", None)
         
         for login_session in login_sessions:
             if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                for m_url in config["ministra_urls"]:
+                for m_url in config["iptv_servers"]:
                     if m_url["url"] == url:
-                        config["ministra_urls"].remove(m_url)
+                        config["iptv_servers"].remove(m_url)
                         break
                 
                 return Response(status=200)
         
         return Response(status=403)
     
-    @app.route("/server/add_ministra_url")
-    def add_ministra():
+    @app.route("/server/add_iptv_server_url")
+    def add_iptv_server():
         url = request.args["url"]
         session_id = request.headers.get("session_id", None)
         
         for login_session in login_sessions:
             if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                config["ministra_urls"].append({
+                config["iptv_servers"].append({
                     "url": url,
                     "mcbash_file": f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2]}",
                     "run_mcbash": True,
@@ -410,7 +410,7 @@ def main():
         os.mkdir(config_dir)
     if not os.path.exists(f"{config_dir}/config.json"):
         print("Config missing, creating.")
-        config = {"https": True, "ministra_urls": [], "channels": [], "users": []}
+        config = {"https": True, "iptv_servers": [], "channels": [], "users": []}
         
         dump_config()
     
@@ -418,7 +418,7 @@ def main():
     config = read_config()
     servers = setup_servers()
     
-    for mcbash_file in config["ministra_urls"]:
+    for mcbash_file in config["iptv_servers"]:
         if not os.path.exists(mcbash_file["mcbash_file"]):
             os.system(f"touch {mcbash_file['mcbash_file']}" if os.name != "nt" else "")
     
@@ -434,7 +434,7 @@ def main():
     
     _thread.start_new_thread(web_server, (0 ,))
     
-    for entry in config["ministra_urls"]:
+    for entry in config["iptv_servers"]:
         if entry["run_mcbash"]:
             _thread.start_new_thread(mcbash, (entry["url"] ,))
     
@@ -442,7 +442,7 @@ def main():
         time.sleep(60*60*24) # Update every day.
         
         for server in servers:
-            if type(server) == MinistraServer:
+            if type(server) == IPTVServer:
                 server.update_macs()
                 server.update_channels()
 
