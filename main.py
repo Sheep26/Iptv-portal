@@ -388,7 +388,6 @@ def web_server():
     @app.route("/server/add_iptv_server")
     def add_iptv_server():
         url = request.args["url"]
-        print(request.headers)
         session_id = request.headers.get("session", None)
         
         for login_session in login_sessions:
@@ -400,6 +399,9 @@ def web_server():
                 }
                 
                 config["iptv_servers"].append(server)
+                
+                os.system(f"touch {server['mcbash_file']}")
+                
                 setup_servers()
                 
                 return Response(status=200)
