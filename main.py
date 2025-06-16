@@ -227,13 +227,19 @@ class IPTVServer:
         return mac_addrs
 
 def setup_servers():
-    x = []
-    x.append(Server(len(x)))
+    if not servers:
+        servers.append(Server(0))
     
     for entry in config["iptv_servers"]:
-        x.append(IPTVServer(entry["url"], len(x), entry.get("mcbash_file", None)))
-    
-    return x
+        found = False
+        for server in servers:
+            if type(server) == IPTVServer:
+                if server.url == entry["url"]:
+                    found = True
+                    break
+        
+        if not found:
+            servers.append(IPTVServer(entry["url"], len(servers), entry.get("mcbash_file", None)))
 
 def mcbash(url):
     while-True:
@@ -362,11 +368,12 @@ def web_server():
         
         for login_session in login_sessions:
             if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                for m_url in config["iptv_servers"]:
-                    if m_url["url"] == url:
-                        config["iptv_servers"].remove(m_url)
-                        break
-                
+                # Remove the server from config["iptv_servers"]
+                config["iptv_servers"] = [server for server in config["iptv_servers"] if server["url"] != url]
+
+                # Remove the server from servers list if it's an IPTVServer and matches the url
+                servers[:] = [x for x in servers if not (isinstance(x, IPTVServer) and x.url == url)]
+
                 return Response(status=200)
         
         return Response(status=403)
@@ -383,6 +390,8 @@ def web_server():
                     "mcbash_file": f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2]}",
                     "run_mcbash": True,
                 })
+                
+                setup_servers()
                 
                 return Response(status=200)
 
@@ -440,8 +449,10 @@ def main():
         dump_config()
     
     # Setup.
+    servers = []
     config = read_config()
-    servers = setup_servers()
+    
+    setup_servers()
     
     for mcbash_file in config["iptv_servers"]:
         if not os.path.exists(mcbash_file["mcbash_file"]):
