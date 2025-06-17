@@ -90,7 +90,7 @@ class Server:
         return Response(status=500)
 
 class XStreamServer:
-    def __init__(self, url, id, username, password):
+    def __init__(self, url, id, username, password, stream_prefix="", stream_suffix=""):
         self.url = url
         self.username = username
         self.password = password
@@ -98,6 +98,8 @@ class XStreamServer:
         self.id = id
         self.session = requests.Session()
         self.user_agent = random.choice(user_agents)
+        self.stream_prefix = stream_prefix
+        self.stream_suffix = stream_suffix
         
         self.setup()
     
@@ -144,7 +146,7 @@ class XStreamServer:
             stream_sessions.append(user_session)
         
         user_session["timestamp"] = time.time()
-        stream_url = f"{self.url}/{self.username}/{self.password}/{channel_id}"
+        stream_url = f"{self.url}/{self.stream_prefix}/{self.username}/{self.password}/{channel_id}{self.stream_prefix}"
         
         def generate():
             with user_session["session"].get(stream_url, headers={"User-Agent": self.user_agent}, stream=True) as r:
@@ -315,7 +317,7 @@ def setup_servers():
             servers.append(IPTVServer(entry["url"], len(servers), entry.get("mcbash_file", None), entry.get("run_mcbash", True)))
     
     for entry in config["xstream_servers"]:
-        servers.append(XStreamServer(entry["url"], len(servers), entry["username"], entry["passwd"]))
+        servers.append(XStreamServer(entry["url"], len(servers), entry["username"], entry["passwd"], entry.get("stream_prefix", ""), entry.get("stream_suffix", "")))
     
     # Stop all existing processes.
     for proc in mcbash_processes:
