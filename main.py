@@ -58,7 +58,7 @@ class Server:
                 break
         
         if user_session == None:
-            req_session = requests.Session()
+            req_session = httpx.Client()
             
             user_session = {
                 "session_id": session_id,
@@ -92,7 +92,7 @@ class XtreamServer:
         self.password = password
         self.channels = []
         self.id = id
-        self.session = requests.Session()
+        self.session = httpx.Client()
         self.user_agent = random.choice(user_agents)
         self.stream_prefix = stream_prefix
         self.stream_suffix = stream_suffix
