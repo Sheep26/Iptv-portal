@@ -296,7 +296,7 @@ class IPTVServer:
                     for chunk in r.iter_bytes(chunk_size=8192):
                         yield chunk
 
-            return Response(stream_with_context(generate()), mimetype='video/mp2t')
+            return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
         else:
             response = redirect(stream_url)
             
