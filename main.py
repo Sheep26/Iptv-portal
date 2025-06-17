@@ -385,7 +385,7 @@ def web_server():
     
     @app.route("/server/<server>/get_xstream_m3u")
     def get_xstream_m3u(server):
-        return server[int(server)].get_m3u() if type(server[int(server)]) == XStreamServer else Response(status=400)
+        return servers[int(server)].get_m3u() if type(servers[int(server)]) == XStreamServer else Response(status=400)
     
     @app.route("/server/get_m3u")
     def get_m3u_all():
