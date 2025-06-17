@@ -498,7 +498,7 @@ def web_server():
                 if not search.lower() in channel["name"].lower():
                     continue
             file_content += f"\n#EXTINF:-1 tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
-            file_content += f"\n{request.url.split(':')[0]}://{request.url.split('/')[2].replace(':', '')}/play/{server}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
+            file_content += f"\n{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{server}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
         
         return Response(file_content, mimetype='text/plain')
     
