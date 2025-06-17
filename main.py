@@ -89,7 +89,7 @@ class Server:
         
         return Response(status=500)
 
-class XStreamServer:
+class XtreamServer:
     def __init__(self, url, id, username, password, stream_prefix="", stream_suffix=""):
         self.url = url
         self.username = username
@@ -316,8 +316,8 @@ def setup_servers():
         if not found:
             servers.append(IPTVServer(entry["url"], len(servers), entry.get("mcbash_file", None), entry.get("run_mcbash", True)))
     
-    for entry in config["xstream_servers"]:
-        servers.append(XStreamServer(entry["url"], len(servers), entry["username"], entry["passwd"], entry.get("stream_prefix", ""), entry.get("stream_suffix", "")))
+    for entry in config["xtream_servers"]:
+        servers.append(XtreamServer(entry["url"], len(servers), entry["username"], entry["passwd"], entry.get("stream_prefix", ""), entry.get("stream_suffix", "")))
     
     # Stop all existing processes.
     for proc in mcbash_processes:
@@ -385,9 +385,9 @@ def web_server():
     def get_channels(server):
         return str(servers[int(server)].channels)
     
-    @app.route("/server/<server>/get_xstream_m3u")
-    def get_xstream_m3u(server):
-        return servers[int(server)].get_m3u() if type(servers[int(server)]) == XStreamServer else Response(status=400)
+    @app.route("/server/<server>/get_xtream_m3u")
+    def get_xtream_m3u(server):
+        return servers[int(server)].get_m3u() if type(servers[int(server)]) == XtreamServer else Response(status=400)
     
     @app.route("/server/get_m3u")
     def get_m3u_all():
@@ -568,7 +568,7 @@ def main():
             if type(server) == IPTVServer:
                 server.update_macs()
                 server.update_channels()
-            elif type(server) == XStreamServer:
+            elif type(server) == XtreamServer:
                 server.update_channels()
 
         for stream_session in stream_sessions:
