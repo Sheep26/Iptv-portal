@@ -384,6 +384,8 @@ def web_server():
 
                 # Remove the server from servers list if it's an IPTVServer and matches the url
                 servers[:] = [x for x in servers if not (isinstance(x, IPTVServer) and x.url == url)]
+                setup_servers()
+                dump_config()
 
                 return Response(status=200)
         
@@ -407,6 +409,7 @@ def web_server():
                 os.system(f"touch {server['mcbash_file']}")
                 
                 setup_servers()
+                dump_config()
                 
                 return Response(status=200)
 
