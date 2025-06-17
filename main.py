@@ -14,6 +14,15 @@ import sys
 servers = []
 config = {}
 config_dir = ""
+user_agents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15'
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15'
+]
 
 class Server:
     def __init__(self, id):
@@ -80,6 +89,73 @@ class Server:
         
         return Response(status=500)
 
+class XStreamServer:
+    def __init__(self, url, id, username, password):
+        self.url = url
+        self.username = username
+        self.password = password
+        self.channels = []
+        self.id = id
+        self.session = requests.Session()
+        self.user_agent = random.choice(user_agents)
+        
+        self.setup()
+    
+    def setup(self):
+        print(f"Starting setup for {self.url}")
+        
+        self.update_channels()
+    
+    def update_channels(self):
+        channels_request = self.session.get(f"{self.url}/player_api.php?username={self.username}&password={self.password}&action=get_live_streams", headers={"User-Agent": self.user_agent})
+        
+        for channel in json.loads(channels_request.text):
+            self.channels.append({
+                "id": channel["stream_id"],
+                "name": channel["name"],
+                "logo": channel["stream_icon"],
+            })
+        
+        print(f"{self.url} has {len(self.channels)} channels.")
+    
+    def handle_play(self, channel_id, session_id, proxy, filename=None):
+        user_session = None
+        
+        for stream_session in stream_sessions:
+            if stream_session["session_id"] == session_id:
+                user_session = stream_session
+                break
+        
+        if user_session == None:
+            req_session = requests.Session()
+            
+            user_session = {
+                "session_id": session_id,
+                "mac": None,
+                "session": req_session,
+                "timestamp": time.time()
+            }
+            
+            stream_sessions.append(user_session)
+        
+        user_session["timestamp"] = time.time()
+        stream_url = f"{self.url}/{self.username}/{self.password}/{channel_id}"
+        
+        def generate():
+            with user_session["session"].get(stream_url, headers={"User-Agent": self.user_agent}, stream=True) as r:
+                for chunk in r.iter_content(chunk_size=4096):
+                    if chunk:
+                        yield chunk
+        
+        if proxy==1:
+            response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
+            
+            return response
+        else:
+            response = redirect(stream_url)
+            
+            return response
+        
 class IPTVServer:
     def __init__(self, url, id, mcbash_file=None, run_mcbash=True):
         self.url = url
@@ -95,32 +171,14 @@ class IPTVServer:
     def setup(self):
         print(f"Setup {self.url}")
         # Get mac addrs
-        self.mac_addrs = self.get_macs_from_mcbash(self.mcbash_file)
-        print(f"There are {len(self.mac_addrs)} mac addrs available on {self.url}.")
+        self.update_macs()
         
         if len(self.mac_addrs) == 0:
             print(f"Setup for {self.url} failed")
             return
         
         # Get channels.
-        handshake = None
-        
-        while handshake == None:
-            mac = random.choice(self.mac_addrs)["addr"]
-            handshake = self.get_handshake(mac)
-        
-        print(f"Token: {handshake}")
-        
-        headers = {
-            "Authorization": f"Bearer {handshake}",
-            "Cookie": f"mac={mac}; stb_lang=en; timezone=Europe/Amsterdam; "
-        }
-        
-        channel_request = self.session.get(f"{self.url}/server/load.php?type=itv&action=get_all_channels", headers=headers)
-        if channel_request.status_code == 200:
-            self.channels = json.loads(channel_request.text)["js"]["data"]
-            print(f"Recieved channel list for {self.url}")
-            print(f"{self.url} has {len(self.channels)} channels.")
+        self.update_channels()
         
         print(f"Setup for {self.url} complete")
     
@@ -129,8 +187,11 @@ class IPTVServer:
         print(f"There are {len(self.mac_addrs)} mac addrs available on {self.url}.")
     
     def update_channels(self):
-        mac = random.choice(self.mac_addrs)["addr"]
-        handshake = self.get_handshake(mac)
+        handshake = None
+        
+        while handshake == None:
+            mac = random.choice(self.mac_addrs)["addr"]
+            handshake = self.get_handshake(mac)
         
         print(f"Token: {handshake}")
         
@@ -246,10 +307,8 @@ def setup_servers():
         if not found:
             servers.append(IPTVServer(entry["url"], len(servers), entry.get("mcbash_file", None), entry.get("run_mcbash", True)))
     
-    for server in servers:
-        if type(server) == IPTVServer:
-            if not os.path.exists(server.mcbash_file):
-                os.system(f"touch {server.mcbash_file}" if os.name != "nt" else "")
+    for entry in config["xstream_servers"]:
+        servers.append(XStreamServer(entry["url"], len(servers), entry["username"], entry["passwd"]))
     
     # Stop all existing processes.
     for proc in mcbash_processes:
@@ -258,6 +317,8 @@ def setup_servers():
 
     for server in servers:
         if type(server) == IPTVServer:
+            if not os.path.exists(server.mcbash_file):
+                os.system(f"touch {server.mcbash_file}")
             if server.run_mcbash:
                 mcbash_processes.append(subprocess.Popen(f"mcbash -u {server.url} -w 2 -b 10 -d 2 -s 0 -t 0 --prefix 00:1A:79", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
 
@@ -493,6 +554,8 @@ def main():
         for server in servers:
             if type(server) == IPTVServer:
                 server.update_macs()
+                server.update_channels()
+            elif type(server) == XStreamServer:
                 server.update_channels()
 
         for stream_session in stream_sessions:
