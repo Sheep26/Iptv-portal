@@ -374,7 +374,7 @@ def web_server():
     
     @app.route("/server/<server>/get_channels")
     def get_channels(server):
-        return servers[int(server)].channels
+        return str(servers[int(server)].channels)
     
     @app.route("/server/get_m3u")
     def get_m3u_all():
@@ -396,7 +396,7 @@ def web_server():
             for channel in server.channels:
                 channels.append(channel)
         
-        return channels
+        return str(channels)
     
     @app.route("/server/<server_id>/add_channel")
     def add_channel(server_id):
