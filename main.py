@@ -1,5 +1,6 @@
 from flask import Flask, redirect, request, Response, session, stream_with_context
 import requests
+import httpx
 import datetime
 import time
 import json
@@ -79,9 +80,12 @@ class Server:
                                 yield chunk
                 
                 if proxy==1:
-                    response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
+                    #response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
                     
-                    return response
+                    #return response
+                    with httpx.stream("GET", channel["url"], follow_redirects=True, timeout=10) as r:
+                        headers = {"Content-Type": r.headers.get("content-type", "application/octet-stream")}
+                        return Response(r.iter_bytes(), headers=headers)
                 else:
                     response = redirect(channel["url"])
                     
@@ -134,7 +138,7 @@ class XtreamServer:
                 break
         
         if user_session == None:
-            req_session = requests.Session()
+            req_session = httpx.Client()
             
             user_session = {
                 "session_id": session_id,
@@ -155,9 +159,12 @@ class XtreamServer:
                         yield chunk
         
         if proxy==1:
-            response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
+            #response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
             
-            return response
+            #return response
+            with httpx.stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+                headers = {"Content-Type": r.headers.get("content-type", "application/octet-stream")}
+                return Response(r.iter_bytes(), headers=headers)
         else:
             response = redirect(stream_url)
             
@@ -170,7 +177,7 @@ class IPTVServer:
         self.mac_addrs = None
         self.channels = None
         self.id = id
-        self.session = requests.Session()
+        self.session = httpx.Client()
         self.user_agent = random.choice(user_agents)
         self.run_mcbash = run_mcbash
         
@@ -205,11 +212,16 @@ class IPTVServer:
         
         headers = {
             "Authorization": f"Bearer {handshake}",
-            "Cookie": f"mac={mac}; stb_lang=en; timezone=Europe/Amsterdam; ",
             "User-Agent": self.user_agent
         }
         
-        channel_request = self.session.get(f"{self.url}/server/load.php?type=itv&action=get_all_channels", headers=headers)
+        cookies = {
+            "mac": mac,
+            "stb_lang": "en",
+            "timezone": "Europe/Amsterdam"
+        }
+        
+        channel_request = self.session.get(f"{self.url}/server/load.php?type=itv&action=get_all_channels", headers=headers, cookies=cookies)
         if channel_request.status_code == 200:
             self.channels = json.loads(channel_request.text)["js"]["data"]
             print(f"{self.url} has {len(self.channels)} channels.")
@@ -218,9 +230,9 @@ class IPTVServer:
         request = self.session.get(f"{self.url}/portal.php?action=handshake&type=stb&token=&mac={mac.replace(':', '%3A')}", headers={"User-Agent": self.user_agent})
         return json.loads(request.text)["js"]["token"] if request.status_code == 200 else None
 
-    def mac_free(self, mac, session=requests.Session()):
+    def mac_free(self, mac):
         try:
-            with session.get(f"{self.url}/play/live.php?mac={mac}&stream={self.channels[0]['id']}&extension=ts", headers={"User-Agent": self.user_agent}, stream=True) as response:
+            with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={self.channels[0]['id']}&extension=ts", headers={"User-Agent": self.user_agent}, stream=True) as response:
                 return response.status_code == 200
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
@@ -236,19 +248,19 @@ class IPTVServer:
                 print(f"Session {session_id} is already using mac {user_session['mac']['addr']}")
                 break
         
-        if user_session == None or not self.mac_free(user_session['mac']['addr'], user_session['session']):
+        if user_session == None or not self.mac_free(user_session['mac']['addr']):
             if user_session != None:
                 stream_sessions.remove(user_session)
             
             print(f"Starting session {session_id}")
             
-            req_session = requests.Session()
+            req_session = httpx.Client()
             
             while True:
                 mac = random.choice(self.mac_addrs)
                 print(f"Trying mac {mac}")
                 
-                mac_free = self.mac_free(mac["addr"], req_session)
+                mac_free = self.mac_free(mac["addr"])
                 if mac_free:
                     print(f"Found mac: {mac}.")
                     break
@@ -267,18 +279,24 @@ class IPTVServer:
         time.sleep(1)
         stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension=ts"
         # Proxy the stream
-        def generate():
+        """def generate():
             with user_session['session'].get(stream_url, headers={"User-Agent": self.user_agent}, stream=True) as r:
                 if r.status_code != 200:
                     print(f"Status code {r.status_code}")
                 for chunk in r.iter_content(chunk_size=4096):
-                    if chunk:
-                        yield chunk
+                    yield chunk"""
         
         if proxy==1:
-            response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
+            #response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
             
-            return response
+            #return response
+
+            def generate():
+                with user_session['session'].stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+                    for chunk in r.iter_bytes(chunk_size=8192):
+                        yield chunk
+
+            return Response(stream_with_context(generate()), mimetype='video/mp2t')
         else:
             response = redirect(stream_url)
             
