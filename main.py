@@ -74,22 +74,14 @@ class Server:
                 user_session["timestamp"] = time.time()
                 
                 def generate():
-                    with user_session["session"].get(channel["url"], stream=True) as r:
-                        for chunk in r.iter_content(chunk_size=4096):
-                            if chunk:
-                                yield chunk
-                
+                    with user_session['session'].stream("GET", channel["url"], follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+                        for chunk in r.iter_bytes(chunk_size=8192):
+                            yield chunk
+        
                 if proxy==1:
-                    #response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
-                    
-                    #return response
-                    with httpx.stream("GET", channel["url"], follow_redirects=True, timeout=10) as r:
-                        headers = {"Content-Type": r.headers.get("content-type", "application/octet-stream")}
-                        return Response(r.iter_bytes(), headers=headers)
+                    return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
                 else:
-                    response = redirect(channel["url"])
-                    
-                    return response
+                    return redirect(channel["url"])
         
         return Response(status=500)
 
@@ -153,22 +145,14 @@ class XtreamServer:
         stream_url = f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel_id}{self.stream_suffix}"
         
         def generate():
-            with user_session["session"].get(stream_url, headers={"User-Agent": self.user_agent}, stream=True) as r:
-                for chunk in r.iter_content(chunk_size=4096):
-                    if chunk:
-                        yield chunk
+            with user_session['session'].stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+                for chunk in r.iter_bytes(chunk_size=8192):
+                    yield chunk
         
         if proxy==1:
-            #response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
-            
-            #return response
-            with httpx.stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
-                headers = {"Content-Type": r.headers.get("content-type", "application/octet-stream")}
-                return Response(r.iter_bytes(), headers=headers)
+            return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
         else:
-            response = redirect(stream_url)
-            
-            return response
+            return redirect(stream_url)
         
 class IPTVServer:
     def __init__(self, url, id, mcbash_file=None, run_mcbash=True):
@@ -279,28 +263,16 @@ class IPTVServer:
         time.sleep(1)
         stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension=ts"
         # Proxy the stream
-        """def generate():
-            with user_session['session'].get(stream_url, headers={"User-Agent": self.user_agent}, stream=True) as r:
-                if r.status_code != 200:
-                    print(f"Status code {r.status_code}")
-                for chunk in r.iter_content(chunk_size=4096):
-                    yield chunk"""
+        
+        def generate():
+            with user_session['session'].stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+                for chunk in r.iter_bytes(chunk_size=8192):
+                    yield chunk
         
         if proxy==1:
-            #response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
-            
-            #return response
-
-            def generate():
-                with user_session['session'].stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
-                    for chunk in r.iter_bytes(chunk_size=8192):
-                        yield chunk
-
             return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
         else:
-            response = redirect(stream_url)
-            
-            return response
+            return redirect(stream_url)
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
         mac_addrs = []
