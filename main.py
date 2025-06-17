@@ -98,6 +98,10 @@ class IPTVServer:
         self.mac_addrs = self.get_macs_from_mcbash(self.mcbash_file)
         print(f"There are {len(self.mac_addrs)} mac addrs available on {self.url}.")
         
+        if len(self.mac_addrs) == 0:
+            print(f"Setup for {self.url} failed")
+            return
+        
         # Get channels.
         handshake = None
         
