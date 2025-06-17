@@ -106,6 +106,11 @@ class XStreamServer:
         
         self.update_channels()
     
+    def get_m3u(self):
+        m3u_request = self.session.get(f"{self.url}/get.php?username={self.username}&password={self.password}&type=m3u&output=ts")
+        
+        return m3u_request.content
+    
     def update_channels(self):
         channels_request = self.session.get(f"{self.url}/player_api.php?username={self.username}&password={self.password}&action=get_live_streams", headers={"User-Agent": self.user_agent})
         
@@ -164,6 +169,7 @@ class IPTVServer:
         self.channels = None
         self.id = id
         self.session = requests.Session()
+        self.user_agent = random.choice(user_agents)
         self.run_mcbash = run_mcbash
         
         self.setup()
@@ -197,7 +203,8 @@ class IPTVServer:
         
         headers = {
             "Authorization": f"Bearer {handshake}",
-            "Cookie": f"mac={mac}; stb_lang=en; timezone=Europe/Amsterdam; "
+            "Cookie": f"mac={mac}; stb_lang=en; timezone=Europe/Amsterdam; ",
+            "User-Agent": self.user_agent
         }
         
         channel_request = self.session.get(f"{self.url}/server/load.php?type=itv&action=get_all_channels", headers=headers)
@@ -206,12 +213,12 @@ class IPTVServer:
             print(f"{self.url} has {len(self.channels)} channels.")
 
     def get_handshake(self, mac):
-        request = self.session.get(f"{self.url}/portal.php?action=handshake&type=stb&token=&mac={mac.replace(':', '%3A')}")
+        request = self.session.get(f"{self.url}/portal.php?action=handshake&type=stb&token=&mac={mac.replace(':', '%3A')}", headers={"User-Agent": self.user_agent})
         return json.loads(request.text)["js"]["token"] if request.status_code == 200 else None
 
     def mac_free(self, mac, session=requests.Session()):
         try:
-            with session.get(f"{self.url}/play/live.php?mac={mac}&stream={self.channels[0]['id']}&extension=ts", stream=True) as response:
+            with session.get(f"{self.url}/play/live.php?mac={mac}&stream={self.channels[0]['id']}&extension=ts", headers={"User-Agent": self.user_agent}, stream=True) as response:
                 return response.status_code == 200
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
@@ -259,7 +266,7 @@ class IPTVServer:
         stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension=ts"
         # Proxy the stream
         def generate():
-            with user_session['session'].get(stream_url, stream=True) as r:
+            with user_session['session'].get(stream_url, headers={"User-Agent": self.user_agent}, stream=True) as r:
                 if r.status_code != 200:
                     print(f"Status code {r.status_code}")
                 for chunk in r.iter_content(chunk_size=4096):
