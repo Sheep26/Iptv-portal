@@ -74,7 +74,7 @@ class Server:
                 user_session["timestamp"] = time.time()
                 
                 def generate():
-                    with user_session['session'].stream("GET", channel["url"], follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+                    with user_session['session'].stream("GET", channel["url"], headers={"User-Agent": self.user_agent}, timeout=10) as r:
                         for chunk in r.iter_bytes(chunk_size=8192):
                             yield chunk
         
@@ -145,7 +145,7 @@ class XtreamServer:
         stream_url = f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel_id}{self.stream_suffix}"
         
         def generate():
-            with user_session['session'].stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+            with user_session['session'].stream("GET", stream_url, headers={"User-Agent": self.user_agent}, timeout=10) as r:
                 for chunk in r.iter_bytes(chunk_size=8192):
                     yield chunk
         
@@ -265,7 +265,7 @@ class IPTVServer:
         # Proxy the stream
         
         def generate():
-            with user_session['session'].stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+            with user_session['session'].stream("GET", stream_url, headers={"User-Agent": self.user_agent}, timeout=10) as r:
                 for chunk in r.iter_bytes(chunk_size=8192):
                     yield chunk
         
