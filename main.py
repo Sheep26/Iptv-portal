@@ -146,7 +146,7 @@ class XtreamServer:
             stream_sessions.append(user_session)
         
         user_session["timestamp"] = time.time()
-        stream_url = f"{self.url}/{self.stream_prefix}/{self.username}/{self.password}/{channel_id}{self.stream_prefix}"
+        stream_url = f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel_id}{self.stream_prefix}"
         
         def generate():
             with user_session["session"].get(stream_url, headers={"User-Agent": self.user_agent}, stream=True) as r:
