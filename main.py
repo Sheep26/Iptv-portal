@@ -383,6 +383,10 @@ def web_server():
     def get_channels(server):
         return str(servers[int(server)].channels)
     
+    @app.route("/server/<server>/get_xstream_m3u")
+    def get_xstream_m3u(server):
+        return server[int(server)].get_m3u() if type(server[int(server)]) == XStreamServer else Response(status=400)
+    
     @app.route("/server/get_m3u")
     def get_m3u_all():
         search = request.args.get("search", None)
