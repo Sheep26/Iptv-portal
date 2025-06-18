@@ -82,7 +82,7 @@ class Server:
                         for chunk in r.iter_bytes(chunk_size=8192):
                             yield chunk
         
-                if proxy==1:
+                if proxy:
                     return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
                 else:
                     return redirect(channel["url"])
@@ -121,6 +121,7 @@ class XtreamServer:
                 "id": channel["stream_id"],
                 "name": channel["name"],
                 "logo": channel["stream_icon"],
+                "url": f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel["stream_id"]}{self.stream_suffix}"
             })
         
         print(f"{self.url} has {len(self.channels)} channels.")
@@ -153,7 +154,7 @@ class XtreamServer:
                 for chunk in r.iter_bytes(chunk_size=8192):
                     yield chunk
         
-        if proxy==1:
+        if proxy:
             return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
         else:
             return redirect(stream_url)
@@ -386,6 +387,7 @@ def web_server():
     @app.route("/server/get_m3u")
     def get_m3u_all():
         search = request.args.get("search", None)
+        original_links = request.args.get("original_links", 0)
         file_content = "#EXTM3U"
         for server in servers:
             for channel in server.channels:
@@ -393,7 +395,9 @@ def web_server():
                     if not search.lower() in channel["name"].lower():
                         continue
                 file_content += f"\n#EXTINF:-1 tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
-                file_content += f"\n{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
+                stream_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
+                if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
+                else: file_content += f"\n{stream_url}"
         return Response(file_content, mimetype='text/plain')
 
     @app.route("/server/get_channels")
