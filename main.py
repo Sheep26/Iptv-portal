@@ -121,7 +121,7 @@ class XtreamServer:
                 "id": channel["stream_id"],
                 "name": channel["name"],
                 "logo": channel["stream_icon"],
-                "url": f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel["stream_id"]}{self.stream_suffix}"
+                "url": f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel['stream_id']}{self.stream_suffix}"
             })
         
         print(f"{self.url} has {len(self.channels)} channels.")
