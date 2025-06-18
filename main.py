@@ -32,11 +32,13 @@ class Server:
     
     def add_channel(self, name, logo, url):
         config["channels"].append({
-            "id": len(config["channels"]),
+            "id": int(len(config["channels"])),
             "name": name,
             "logo": logo,
             "url": url,
         })
+        
+        dump_config()
     
     def remove_channel(self, name=None, id=None):
         for channel in self.channels:
@@ -48,8 +50,10 @@ class Server:
                 if channel["id"] == id:
                     config["channels"].remove(channel)
                     break
+        
+        dump_config()
     
-    def handle_play(self, channel_id, session_id, proxy, filename=None):
+    def handle_play(self, channel_id, session_id, proxy):
         user_session = None
         
         for stream_session in stream_sessions:
@@ -70,7 +74,7 @@ class Server:
             stream_sessions.append(user_session)
         
         for channel in self.channels:
-            if channel["id"] == channel_id:
+            if channel["id"] == int(channel_id):
                 user_session["timestamp"] = time.time()
                 
                 def generate():
@@ -121,7 +125,7 @@ class XtreamServer:
         
         print(f"{self.url} has {len(self.channels)} channels.")
     
-    def handle_play(self, channel_id, session_id, proxy, filename=None):
+    def handle_play(self, channel_id, session_id, proxy):
         user_session = None
         
         for stream_session in stream_sessions:
@@ -352,7 +356,7 @@ def web_server():
     
     @app.route("/api/logout")
     def logout():
-        session_id = request.headers.get("session_id", None)
+        session_id = request.headers.get("session", None)
         
         for login_session in login_sessions:
             if login_session["session_id"] == session_id:
@@ -363,7 +367,7 @@ def web_server():
     
     @app.route("/api/get_user")
     def get_user():
-        session_id = request.headers.get("session_id", None)
+        session_id = request.headers.get("session", None)
         
         for login_session in login_sessions:
             if login_session["session_id"] == session_id:
@@ -405,7 +409,7 @@ def web_server():
     def add_channel(server_id):
         server = servers[int(server_id)]
         if type(server) == Server:
-            session_id = request.headers.get("session_id", None)
+            session_id = request.headers.get("session", None)
             name = request.args.get("name", None)
             logo = request.args.get("logo", None)
             url = request.args.get("url", None)
@@ -423,7 +427,7 @@ def web_server():
     def remove_channel(server_id):
         server = servers[int(server_id)]
         if type(server) == Server:
-            session_id = request.headers.get("session_id", None)
+            session_id = request.headers.get("session", None)
             name = request.args.get("name", None)
             id = request.args.get("id", None)
             
@@ -439,7 +443,7 @@ def web_server():
     @app.route("/server/remove_iptv_server")
     def remove_iptv_server():
         url = request.args.get("url", None)
-        session_id = request.headers.get("session_id", None)
+        session_id = request.headers.get("session", None)
         
         for login_session in login_sessions:
             if login_session["session_id"] == session_id and login_session["user"]["admin"]:
