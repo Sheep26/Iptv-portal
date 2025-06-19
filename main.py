@@ -388,12 +388,24 @@ def web_server():
     def get_m3u_all():
         search = request.args.get("search", None)
         original_links = request.args.get("original_links", 0)
+        print(request.args.get("exclude", "[]"))
+        exclude = json.loads(request.args.get("exclude", "[]"))
+        
         file_content = "#EXTM3U"
         for server in servers:
             for channel in server.channels:
                 if search != None:
                     if not search.lower() in channel["name"].lower():
                         continue
+                
+                found = False
+            
+                for exclude_url in exclude:
+                    if exclude_url.lower() in channel["name"].lower():
+                        found = True
+                        break
+                if found: continue
+            
                 file_content += f"\n#EXTINF:-1 tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
                 stream_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
                 if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
@@ -491,11 +503,22 @@ def web_server():
     def get_m3u(server):
         search = request.args.get("search", None)
         original_links = request.args.get("original_links", 0)
+        exclude = json.loads(request.args.get("exclude", "[]"))
+        
         file_content = "#EXTM3U"
         for channel in servers[int(server)].channels:
             if search != None:
                 if not search.lower() in channel["name"].lower():
                     continue
+            
+            found = False
+            
+            for exclude_url in exclude:
+                if exclude_url.lower() in channel["name"].lower():
+                    found = True
+                    break
+            if found: continue
+            
             file_content += f"\n#EXTINF:-1 tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
             stream_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
             if original_links: file_content += f"\n{channel['url'] if type(servers[int(server)]) == Server or type(servers[int(server)]) == XtreamServer else stream_url}"
