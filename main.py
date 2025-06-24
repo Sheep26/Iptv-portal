@@ -388,7 +388,6 @@ def web_server():
     def get_m3u_all():
         search = request.args.get("search", None)
         original_links = request.args.get("original_links", 0)
-        print(request.args.get("exclude", "[]"))
         exclude = json.loads(request.args.get("exclude", "[]"))
         
         file_content = "#EXTM3U"
