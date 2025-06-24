@@ -389,6 +389,7 @@ def web_server():
         search = request.args.get("search", None)
         original_links = request.args.get("original_links", 0)
         exclude = json.loads(request.args.get("exclude", "[]"))
+        names = []
         
         file_content = "#EXTM3U"
         for server in servers:
@@ -404,11 +405,15 @@ def web_server():
                         found = True
                         break
                 if found: continue
-            
-                file_content += f"\n#EXTINF:-1 tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
-                stream_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
-                if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
-                else: file_content += f"\n{stream_url}"
+                
+                if not channel['name'] in names:
+                    names += channel['name']
+                
+                    file_content += f"\n#EXTINF:-1 tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
+                    stream_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
+                    if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
+                    else: file_content += f"\n{stream_url}"
+        
         return Response(file_content, mimetype='text/plain')
 
     @app.route("/server/get_channels")
@@ -503,6 +508,7 @@ def web_server():
         search = request.args.get("search", None)
         original_links = request.args.get("original_links", 0)
         exclude = json.loads(request.args.get("exclude", "[]"))
+        names = []
         
         file_content = "#EXTM3U"
         for channel in servers[int(server)].channels:
@@ -518,10 +524,13 @@ def web_server():
                     break
             if found: continue
             
-            file_content += f"\n#EXTINF:-1 tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
-            stream_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
-            if original_links: file_content += f"\n{channel['url'] if type(servers[int(server)]) == Server or type(servers[int(server)]) == XtreamServer else stream_url}"
-            else: file_content += f"\n{stream_url}"
+            if not channel['name'] in names:
+                names += channel['name']
+            
+                file_content += f"\n#EXTINF:-1 tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
+                stream_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
+                if original_links: file_content += f"\n{channel['url'] if type(servers[int(server)]) == Server or type(servers[int(server)]) == XtreamServer else stream_url}"
+                else: file_content += f"\n{stream_url}"
             #file_content += f"\n{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
         
         return Response(file_content, mimetype='text/plain')
