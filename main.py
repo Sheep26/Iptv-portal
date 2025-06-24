@@ -85,7 +85,7 @@ class Server:
                 if proxy:
                     return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
                 else:
-                    return redirect(channel["url"], code=200)
+                    return redirect(channel["url"], code=301)
         
         return Response(status=500)
 
@@ -157,7 +157,7 @@ class XtreamServer:
         if proxy:
             return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
         else:
-            return redirect(stream_url, code=200)
+            return redirect(stream_url, code=301)
         
 class IPTVServer:
     def __init__(self, url, id, mcbash_file=None, run_mcbash=True):
@@ -277,7 +277,7 @@ class IPTVServer:
         if proxy==1:
             return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
         else:
-            return redirect(stream_url, code=200)
+            return redirect(stream_url, code=301)
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
         mac_addrs = []
