@@ -99,7 +99,7 @@ class Server:
             path = os.path.join(config["stream_path"], str(self.id), channel)
             
             for ffmpeg_stream in self.ffmpeg_streams:
-                if ffmpeg_stream.channel == channel:
+                if ffmpeg_stream.channel == channel_id:
                     found = True
                     stream_obj = ffmpeg_stream
             
