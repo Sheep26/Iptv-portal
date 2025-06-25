@@ -94,6 +94,20 @@ class Server:
         dump_config()
     
     def handle_play(self, channel_id, session_id, proxy):
+        if proxy==2:
+            found = False
+            path = os.path.join(config["stream_path"], str(self.id), channel)
+            
+            for ffmpeg_stream in self.ffmpeg_streams:
+                if ffmpeg_stream.channel == channel:
+                    found = True
+                    stream_obj = ffmpeg_stream
+            
+            if found:
+                stream_obj.last_used = time.time()
+
+                return send_file(os.path.join(path, "index.m3u8"))
+        
         user_session = None
         
         for stream_session in stream_sessions:
@@ -195,6 +209,20 @@ class XtreamServer:
         print(f"{self.url} has {len(self.channels)} channels.")
     
     def handle_play(self, channel, session_id, proxy):
+        if proxy==2:
+            found = False
+            path = os.path.join(config["stream_path"], str(self.id), channel)
+            
+            for ffmpeg_stream in self.ffmpeg_streams:
+                if ffmpeg_stream.channel == channel:
+                    found = True
+                    stream_obj = ffmpeg_stream
+            
+            if found:
+                stream_obj.last_used = time.time()
+
+                return send_file(os.path.join(path, "index.m3u8"))
+        
         user_session = None
         
         for stream_session in stream_sessions:
@@ -325,6 +353,21 @@ class IPTVServer:
     
     def handle_play(self, channel, session_id, proxy):
         print(f"Request for channnel {channel} on server {self.url}")
+        
+        if proxy==2:
+            found = False
+            path = os.path.join(config["stream_path"], str(self.id), channel)
+            
+            for ffmpeg_stream in self.ffmpeg_streams:
+                if ffmpeg_stream.channel == channel:
+                    found = True
+                    stream_obj = ffmpeg_stream
+            
+            if found:
+                stream_obj.last_used = time.time()
+
+                return send_file(os.path.join(path, "index.m3u8"))
+        
         user_session = None
         
         for stream_session in stream_sessions:
