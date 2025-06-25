@@ -21,6 +21,7 @@ RUN make install
 RUN pip install flask
 RUN pip install requests
 RUN pip install httpx
+RUN apt install ffmpeg
 
 COPY . .
 

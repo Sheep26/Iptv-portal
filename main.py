@@ -1,4 +1,4 @@
-from flask import Flask, redirect, request, Response, session, stream_with_context
+from flask import Flask, redirect, request, Response, session, stream_with_context, send_file
 import requests
 import httpx
 import datetime
@@ -11,6 +11,7 @@ import os
 import hashlib
 import string
 import sys
+import atexit
 
 servers = []
 config = {}
@@ -25,10 +26,49 @@ user_agents = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15'
 ]
 
+class FfmpegStream:
+    def __init__(self, server, channel, link, path, ffmpeg_str_arr, framerate = 0, flags="delete_segments+independent_segments", allow_cache=0, hls_time=0, hls_list_size=0):
+        self.channel = channel
+        self.link = link
+        self.path = path
+        self.framerate = framerate
+        self.flags = flags
+        self.allow_cache = allow_cache
+        self.hls_time = hls_time
+        self.hls_list_size = hls_list_size
+        self.proc = 0
+        self.ffmpeg_str_arr = ffmpeg_str_arr
+        self.server = server
+        self.last_used = time.time()
+    
+    def start_stream(self):
+        hls_time_str = f"-hls_time {self.hls_time}" if self.hls_time != 0 else ""
+        hls_list_size_str = f"-hls_list_size {self.hls_list_size}" if self.hls_list_size != 0 else ""
+        framerate_str = f"-r {self.framerate}" if self.framerate != 0 else ""
+        print(f"Starting stream {self.link}.")
+        
+        self.proc = subprocess.Popen(f'{config["ffmpeg_path"]} -re \
+            -i "{self.link}" \
+            -c copy \
+            -f hls \
+            {hls_time_str} \
+            {hls_list_size_str} \
+            -hls_flags {self.flags} \
+            -hls_allow_cache {self.allow_cache} \
+            {framerate_str} \
+            -hls_base_url "/hls/{self.server}/{self.channel}/"\
+            {os.path.join(self.path, "index.m3u8")}', shell=True) #, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    
+    def stop_stream(self):
+        self.proc.kill()
+        os.remove(self.path)
+        self.ffmpeg_str_arr.remove(self)
+
 class Server:
     def __init__(self, id):
         self.channels = config["channels"]
         self.id = id
+        self.ffmpeg_streams = []
     
     def add_channel(self, name, logo, url):
         config["channels"].append({
@@ -82,10 +122,37 @@ class Server:
                         for chunk in r.iter_bytes(chunk_size=8192):
                             yield chunk
         
-                if proxy:
-                    return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
-                else:
-                    return redirect(channel["url"], code=301)
+                match proxy:
+                    case 2:
+                        found = False
+                        path = os.path.join(config["stream_path"], str(self.id), channel_id)
+                        
+                        for ffmpeg_stream in self.ffmpeg_streams:
+                            if ffmpeg_stream.channel == channel_id:
+                                found = True
+                                stream_obj = ffmpeg_stream
+                        
+                        if not found:
+                            print(f"Creating ffmpeg instance for {channel_id}")
+                            
+                            if not os.path.exists(os.path.join(config["stream_path"], str(self.id))):
+                                os.mkdir(os.path.join(config["stream_path"], str(self.id)))
+                            
+                            os.mkdir(path)
+                            
+                            stream_obj = FfmpegStream(self.id, channel_id, channel["url"], path, ffmpeg_str_arr=self.ffmpeg_streams, hls_time=10, hls_list_size=30)
+                            stream_obj.start_stream()
+                            
+                            self.ffmpeg_streams.append(stream_obj)
+                            time.sleep(10)
+                        
+                        stream_obj.last_used = time.time()
+
+                        return send_file(os.path.join(path, "index.m3u8"))
+                    case 1:
+                        return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
+                    case _:
+                        return redirect(channel["url"], code=301)
         
         return Response(status=500)
 
@@ -100,6 +167,7 @@ class XtreamServer:
         self.user_agent = random.choice(user_agents)
         self.stream_prefix = stream_prefix
         self.stream_suffix = stream_suffix
+        self.ffmpeg_streams = []
         
         self.setup()
     
@@ -126,7 +194,7 @@ class XtreamServer:
         
         print(f"{self.url} has {len(self.channels)} channels.")
     
-    def handle_play(self, channel_id, session_id, proxy):
+    def handle_play(self, channel, session_id, proxy):
         user_session = None
         
         for stream_session in stream_sessions:
@@ -147,17 +215,44 @@ class XtreamServer:
             stream_sessions.append(user_session)
         
         user_session["timestamp"] = time.time()
-        stream_url = f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel_id}{self.stream_suffix}"
+        stream_url = f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel}{self.stream_suffix}"
         
         def generate():
             with user_session['session'].stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
                 for chunk in r.iter_bytes(chunk_size=8192):
                     yield chunk
         
-        if proxy:
-            return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
-        else:
-            return redirect(stream_url, code=301)
+        match proxy:
+            case 2:
+                found = False
+                path = os.path.join(config["stream_path"], str(self.id), channel)
+                
+                for ffmpeg_stream in self.ffmpeg_streams:
+                    if ffmpeg_stream.channel == channel:
+                        found = True
+                        stream_obj = ffmpeg_stream
+                
+                if not found:
+                    print(f"Creating ffmpeg instance for {channel}")
+                    
+                    if not os.path.exists(os.path.join(config["stream_path"], str(self.id))):
+                        os.mkdir(os.path.join(config["stream_path"], str(self.id)))
+                    
+                    os.mkdir(path)
+                    
+                    stream_obj = FfmpegStream(self.id, channel, stream_url, path, ffmpeg_str_arr=self.ffmpeg_streams, hls_time=10, hls_list_size=30)
+                    stream_obj.start_stream()
+                    
+                    self.ffmpeg_streams.append(stream_obj)
+                    time.sleep(10)
+                
+                stream_obj.last_used = time.time()
+
+                return send_file(os.path.join(path, "index.m3u8"))
+            case 1:
+                return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
+            case _:
+                return redirect(stream_url, code=301)
         
 class IPTVServer:
     def __init__(self, url, id, mcbash_file=None, run_mcbash=True):
@@ -169,6 +264,7 @@ class IPTVServer:
         self.session = httpx.Client()
         self.user_agent = random.choice(user_agents)
         self.run_mcbash = run_mcbash
+        self.ffmpeg_streams = []
         
         self.setup()
     
@@ -274,10 +370,37 @@ class IPTVServer:
                 for chunk in r.iter_bytes(chunk_size=8192):
                     yield chunk
         
-        if proxy==1:
-            return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
-        else:
-            return redirect(stream_url, code=301)
+        match proxy:
+            case 2:
+                found = False
+                path = os.path.join(config["stream_path"], str(self.id), channel)
+                
+                for ffmpeg_stream in self.ffmpeg_streams:
+                    if ffmpeg_stream.channel == channel:
+                        found = True
+                        stream_obj = ffmpeg_stream
+                
+                if not found:
+                    print(f"Creating ffmpeg instance for {channel}")
+                    
+                    if not os.path.exists(os.path.join(config["stream_path"], str(self.id))):
+                        os.mkdir(os.path.join(config["stream_path"], str(self.id)))
+                    
+                    os.mkdir(path)
+                    
+                    stream_obj = FfmpegStream(self.id, channel, stream_url, path, ffmpeg_str_arr=self.ffmpeg_streams, hls_time=10, hls_list_size=30)
+                    stream_obj.start_stream()
+                    
+                    self.ffmpeg_streams.append(stream_obj)
+                    time.sleep(10)
+                
+                stream_obj.last_used = time.time()
+
+                return send_file(os.path.join(path, "index.m3u8"))
+            case 1:
+                return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
+            case _:
+                return redirect(stream_url, code=301)
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
         mac_addrs = []
@@ -334,6 +457,10 @@ def web_server():
     
     login_sessions = []
     stream_sessions = []
+    
+    @app.route("/hls/<server>/<channel>/<file>")
+    def return_hls_stream_part(server, channel, file):
+        return send_file(os.path.join(config["stream_path"], str(server), channel, file))
     
     @app.route("/api/login")
     def login():
@@ -553,16 +680,19 @@ def main():
     global config_dir
     global mcbash_processes
     
+    atexit.register(exit_handler)
+    
     debug = "--debug" in sys.argv
-    config_dir = ("/etc/iptv" if os.system != "nt" else f"{os.environ['appdata']}/iptv") if not debug else "./"
+    config_dir = ("/etc/iptv" if os.system != "nt" else os.path.join(os.environ['appdata'], "iptv")) if not debug else "./"
     print(f"Config dir: {config_dir}")
     print(f"Config file {config_dir}/config.json")
     
     if not os.path.exists(config_dir):
         os.mkdir(config_dir)
+    
     if not os.path.exists(f"{config_dir}/config.json"):
         print("Config missing, creating.")
-        config = {"https": True, "iptv_servers": [], "channels": [], "users": []}
+        config = {"https": True, "stream_path": "/streams", "ffmpeg_path": None, "iptv_servers": [], "channels": [], "users": []}
         
         dump_config()
     
@@ -570,6 +700,9 @@ def main():
     servers = []
     mcbash_processes = []
     config = read_config()
+    
+    if not os.path.exists(config["stream_path"]):
+        os.mkdir(config["stream_path"])
     
     setup_servers()
     
@@ -590,6 +723,10 @@ def main():
         time.sleep(60*60*24) # Update every day.
         
         for server in servers:
+            for ffmpeg_stream in server.ffmpeg_streams:
+                if ffmpeg_stream.last_used > 60*60*24:
+                    ffmpeg_stream.stop_stream()
+            
             if type(server) == IPTVServer:
                 server.update_macs()
                 server.update_channels()
@@ -601,6 +738,15 @@ def main():
                 stream_sessions.remove(stream_session)
         
         dump_config()
+        
+def exit_handler():
+    try:
+        if servers != None:
+            for server in servers:
+                for ffmpeg_stream in server:
+                    ffmpeg_stream.stop_stream()
+    except:
+        pass
 
 if __name__ == "__main__": #/root/.mcbash/valid_macs_ledir.thund.re
     main()
