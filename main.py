@@ -763,11 +763,11 @@ def main():
     webserver_thread.start()
     
     while True:
-        time.sleep(60*60*24) # Update every day.
+        time.sleep(60*60*8) # Update every 8 hours.
         
         for server in servers:
             for ffmpeg_stream in server.ffmpeg_streams:
-                if ffmpeg_stream.last_used > 60*60*24:
+                if ffmpeg_stream.last_used > 60*60*8: # Check every 8 hours.
                     ffmpeg_stream.stop_stream()
             
             if type(server) == IPTVServer:
