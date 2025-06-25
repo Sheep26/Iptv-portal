@@ -96,7 +96,7 @@ class Server:
     def handle_play(self, channel_id, session_id, proxy):
         if proxy==2:
             found = False
-            path = os.path.join(config["stream_path"], str(self.id), channel)
+            path = os.path.join(config["stream_path"], str(self.id), channel_id)
             
             for ffmpeg_stream in self.ffmpeg_streams:
                 if ffmpeg_stream.channel == channel_id:
