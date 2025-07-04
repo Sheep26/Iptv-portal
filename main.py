@@ -1,4 +1,5 @@
 from flask import Flask, redirect, request, Response, session, stream_with_context, send_file
+from flask_cors import CORS
 import requests
 import httpx
 import datetime
@@ -343,9 +344,10 @@ class IPTVServer:
         request = self.session.get(f"{self.url}/portal.php?action=handshake&type=stb&token=&mac={mac.replace(':', '%3A')}", headers={"User-Agent": self.user_agent})
         return json.loads(request.text)["js"]["token"] if request.status_code == 200 else None
 
-    def mac_free(self, mac):
+    def mac_free(self, mac, channel):
         try:
-            with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={self.channels[0]['id']}&extension=ts", headers={"User-Agent": self.user_agent}, stream=True) as response:
+            with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={channel}&extension=ts", headers={"User-Agent": self.user_agent}, stream=True) as response:
+                print(response.status_code)
                 return response.status_code == 200
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
@@ -376,7 +378,7 @@ class IPTVServer:
                 print(f"Session {session_id} is already using mac {user_session['mac']['addr']}")
                 break
         
-        if user_session == None or not self.mac_free(user_session['mac']['addr']):
+        if user_session == None or not self.mac_free(user_session['mac']['addr'], channel):
             if user_session != None:
                 stream_sessions.remove(user_session)
             
@@ -388,7 +390,7 @@ class IPTVServer:
                 mac = random.choice(self.mac_addrs)
                 print(f"Trying mac {mac}")
                 
-                mac_free = self.mac_free(mac["addr"])
+                mac_free = self.mac_free(mac["addr"], channel)
                 if mac_free:
                     print(f"Found mac: {mac}.")
                     break
@@ -496,6 +498,7 @@ def web_server():
     global stream_sessions
     global login_sessions
     app = Flask(__name__)
+    CORS(app)
     app.secret_key = rand_str(32)
     
     login_sessions = []
