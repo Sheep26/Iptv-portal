@@ -22,6 +22,7 @@ RUN pip install flask
 RUN pip install requests
 RUN pip install httpx
 RUN apt install ffmpeg -y
+RUN pip install flask-cors
 
 COPY . .
 
