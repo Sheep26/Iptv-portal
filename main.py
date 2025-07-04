@@ -13,6 +13,7 @@ import hashlib
 import string
 import sys
 import atexit
+import shutil
 
 servers = []
 config = {}
@@ -62,14 +63,18 @@ class FfmpegStream:
     
     def stop_stream(self):
         self.proc.kill()
-        os.remove(self.path)
+        time.sleep(2)
         self.ffmpeg_str_arr.remove(self)
+        print(f"Stream {self.link} stopped.")
+        print(f"Deleting {self.path}")
+        shutil.rmtree(self.path, ignore_errors=True)
 
 class Server:
     def __init__(self, id):
         self.channels = config["channels"]
         self.id = id
         self.ffmpeg_streams = []
+        self.user_agent = random.choice(user_agents)
     
     def add_channel(self, name, logo, url):
         config["channels"].append({
@@ -151,9 +156,15 @@ class Server:
                             print(f"Creating ffmpeg instance for {channel_id}")
                             
                             if not os.path.exists(os.path.join(config["stream_path"], str(self.id))):
-                                os.mkdir(os.path.join(config["stream_path"], str(self.id)))
+                                try:
+                                    os.mkdir(os.path.join(config["stream_path"], str(self.id)))
+                                except:
+                                    pass
                             
-                            os.mkdir(path)
+                            try:
+                                os.mkdir(path)
+                            except:
+                                pass
                             
                             stream_obj = FfmpegStream(self.id, channel_id, channel["url"], path, ffmpeg_str_arr=self.ffmpeg_streams, hls_time=10, hls_list_size=30)
                             stream_obj.start_stream()
@@ -265,9 +276,15 @@ class XtreamServer:
                     print(f"Creating ffmpeg instance for {channel}")
                     
                     if not os.path.exists(os.path.join(config["stream_path"], str(self.id))):
-                        os.mkdir(os.path.join(config["stream_path"], str(self.id)))
+                        try:
+                            os.mkdir(os.path.join(config["stream_path"], str(self.id)))
+                        except:
+                            pass
                     
-                    os.mkdir(path)
+                    try:
+                        os.mkdir(path)
+                    except:
+                        pass
                     
                     stream_obj = FfmpegStream(self.id, channel, stream_url, path, ffmpeg_str_arr=self.ffmpeg_streams, hls_time=10, hls_list_size=30)
                     stream_obj.start_stream()
@@ -429,9 +446,15 @@ class IPTVServer:
                     print(f"Creating ffmpeg instance for {channel}")
                     
                     if not os.path.exists(os.path.join(config["stream_path"], str(self.id))):
-                        os.mkdir(os.path.join(config["stream_path"], str(self.id)))
+                        try:
+                            os.mkdir(os.path.join(config["stream_path"], str(self.id)))
+                        except:
+                            pass
                     
-                    os.mkdir(path)
+                    try:
+                        os.mkdir(path)
+                    except:
+                        pass
                     
                     stream_obj = FfmpegStream(self.id, channel, stream_url, path, ffmpeg_str_arr=self.ffmpeg_streams, hls_time=10, hls_list_size=30)
                     stream_obj.start_stream()
@@ -786,13 +809,11 @@ def main():
         dump_config()
         
 def exit_handler():
-    try:
-        if servers != None:
-            for server in servers:
-                for ffmpeg_stream in server:
-                    ffmpeg_stream.stop_stream()
-    except:
-        pass
+    print("Exitting.")
+    if servers != None:
+        for server in servers:
+            for ffmpeg_stream in server.ffmpeg_streams:
+                ffmpeg_stream.stop_stream()
 
 if __name__ == "__main__": #/root/.mcbash/valid_macs_ledir.thund.re
     main()
