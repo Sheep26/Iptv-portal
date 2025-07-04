@@ -170,9 +170,12 @@ class Server:
                             stream_obj.start_stream()
                             
                             self.ffmpeg_streams.append(stream_obj)
-                            time.sleep(10)
                         
                         stream_obj.last_used = time.time()
+                
+                        while not os.path.exists(os.path.join(path, "index.m3u8")):
+                            print(f"File {os.path.join(path, "index.m3u8")} doesn't exist sleeping 0.1s")
+                            time.sleep(0.1)
 
                         return send_file(os.path.join(path, "index.m3u8"))
                     case 1:
@@ -290,9 +293,12 @@ class XtreamServer:
                     stream_obj.start_stream()
                     
                     self.ffmpeg_streams.append(stream_obj)
-                    time.sleep(10)
                 
                 stream_obj.last_used = time.time()
+                
+                while not os.path.exists(os.path.join(path, "index.m3u8")):
+                    print(f"File {os.path.join(path, "index.m3u8")} doesn't exist sleeping 0.1s")
+                    time.sleep(0.1)
 
                 return send_file(os.path.join(path, "index.m3u8"))
             case 1:
@@ -460,9 +466,12 @@ class IPTVServer:
                     stream_obj.start_stream()
                     
                     self.ffmpeg_streams.append(stream_obj)
-                    time.sleep(10)
                 
                 stream_obj.last_used = time.time()
+                
+                while not os.path.exists(os.path.join(path, "index.m3u8")):
+                    print(f"File {os.path.join(path, "index.m3u8")} doesn't exist sleeping 0.1s")
+                    time.sleep(0.1)
 
                 return send_file(os.path.join(path, "index.m3u8"))
             case 1:
