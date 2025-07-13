@@ -144,6 +144,7 @@ class Server:
         
                 match proxy:
                     case 2:
+                        return
                         found = False
                         path = os.path.join(config["stream_path"], str(self.id), channel_id)
                         
@@ -267,6 +268,7 @@ class XtreamServer:
         
         match proxy:
             case 2:
+                return
                 found = False
                 path = os.path.join(config["stream_path"], str(self.id), channel)
                 
@@ -440,6 +442,7 @@ class IPTVServer:
         
         match proxy:
             case 2:
+                return
                 found = False
                 path = os.path.join(config["stream_path"], str(self.id), channel)
                 
