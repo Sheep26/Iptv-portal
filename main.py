@@ -372,7 +372,7 @@ class IPTVServer:
     def mac_free(self, mac, channel):
         try:
             with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={channel}&extension=ts", headers={"User-Agent": self.user_agent}, stream=True) as response:
-                print(response.status_code)
+                if response.status_code == 405: return None
                 return response.status_code == 200
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
@@ -416,6 +416,9 @@ class IPTVServer:
                 print(f"Trying mac {mac}")
                 
                 mac_free = self.mac_free(mac["addr"], channel)
+                
+                if mac_free == None: return Response(status=500)
+                
                 if mac_free:
                     print(f"Found mac: {mac}.")
                     break
