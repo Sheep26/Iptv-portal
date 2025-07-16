@@ -530,7 +530,7 @@ def setup_servers():
             if not os.path.exists(server.mcbash_file):
                 os.system(f"touch {server.mcbash_file}")
             if server.run_mcbash:
-                mcbash_processes.append(subprocess.Popen(f"mcbash -u {server.url} -w 2 -b 10 -d 2 -s 0 -t 0 --prefix 00:1A:79", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+                mcbash_processes.append(subprocess.Popen(f"mcbash -u {server.url} -w 3 -b 10 -d 5 -s 0 -t 0 --prefix 00:1A:79", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
 
 def web_server():
     global stream_sessions
