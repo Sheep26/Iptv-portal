@@ -324,17 +324,22 @@ class IPTVServer:
     
     def setup(self):
         print(f"Setup {self.url}")
-        # Get mac addrs
-        self.update_macs()
         
-        if len(self.mac_addrs) == 0:
-            print(f"Setup for {self.url} failed")
-            return
-        
-        # Get channels.
-        self.update_channels()
-        
-        print(f"Setup for {self.url} complete")
+        try:
+            # Get mac addrs
+            self.update_macs()
+            
+            if len(self.mac_addrs) == 0:
+                print(f"Setup for {self.url} failed")
+                return
+            
+            # Get channels.
+            self.update_channels()
+            
+            print(f"Setup for {self.url} complete")
+        except httpx.TimeoutException as e:
+            print(e)
+            print(f"Setup for {self.url} failed.")
     
     def update_macs(self):
         self.mac_addrs = self.get_macs_from_mcbash(self.mcbash_file)
