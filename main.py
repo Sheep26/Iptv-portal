@@ -816,11 +816,14 @@ def main():
                 if ffmpeg_stream.last_used > 60*60*8: # Check every 8 hours.
                     ffmpeg_stream.stop_stream()
             
-            if type(server) == IPTVServer:
-                server.update_macs()
-                server.update_channels()
-            elif type(server) == XtreamServer:
-                server.update_channels()
+            try:
+                if type(server) == IPTVServer:
+                    server.update_macs()
+                    server.update_channels()
+                elif type(server) == XtreamServer:
+                    server.update_channels()
+            except httpx.TimeoutException:
+                print("Timeout.")
 
         for stream_session in stream_sessions:
             if time.time() - stream_session["timestamp"] > 60*60*24: # Delete sessions that haven't been used in a day.
