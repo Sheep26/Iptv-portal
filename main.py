@@ -838,5 +838,5 @@ def exit_handler():
             for ffmpeg_stream in server.ffmpeg_streams:
                 ffmpeg_stream.stop_stream()
 
-if __name__ == "__main__": #/root/.mcbash/valid_macs_ledir.thund.re
+if __name__ == "__main__":
     main()
