@@ -14,6 +14,7 @@ import string
 import sys
 import atexit
 import shutil
+import gc
 
 servers = []
 config = {}
@@ -809,7 +810,7 @@ def main():
     webserver_thread.start()
     
     while True:
-        time.sleep(60*60*8) # Update every 8 hours.
+        time.sleep(60*60) # Update every hour.
         
         for server in servers:
             for ffmpeg_stream in server.ffmpeg_streams:
@@ -826,10 +827,13 @@ def main():
                 print("Timeout.")
 
         for stream_session in stream_sessions:
-            if time.time() - stream_session["timestamp"] > 60*60*24: # Delete sessions that haven't been used in a day.
+            if time.time() - stream_session["timestamp"] > 60*60*1: # Delete sessions that haven't been used a hour.
                 stream_sessions.remove(stream_session)
+                del stream_session
         
         dump_config()
+        
+        gc.collect()
         
 def exit_handler():
     print("Exitting.")
