@@ -215,6 +215,7 @@ class XtreamServer:
         return m3u_request.content
     
     def update_channels(self):
+        self.channels.clear()
         channels_request = self.session.get(f"{self.url}/player_api.php?username={self.username}&password={self.password}&action=get_live_streams", headers={"User-Agent": self.user_agent})
         
         for channel in json.loads(channels_request.text):
