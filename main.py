@@ -123,7 +123,9 @@ class Server:
                 break
         
         if user_session == None:
-            req_session = httpx.Client()
+            req_session = None
+            if proxy != 0:
+                req_session = httpx.Client()
             
             user_session = {
                 "session_id": session_id,
@@ -248,7 +250,9 @@ class XtreamServer:
                 break
         
         if user_session == None:
-            req_session = httpx.Client()
+            req_session = None
+            if proxy != 0:
+                req_session = httpx.Client()
             
             user_session = {
                 "session_id": session_id,
@@ -415,7 +419,9 @@ class IPTVServer:
             
             print(f"Starting session {session_id}")
             
-            req_session = httpx.Client()
+            req_session = None
+            if proxy != 0:
+                req_session = httpx.Client()
             
             while True:
                 mac = random.choice(self.mac_addrs)
