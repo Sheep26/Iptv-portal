@@ -310,7 +310,16 @@ class XtreamServer:
 
                 return send_file(os.path.join(path, "index.m3u8"))
             case 1:
-                return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
+                response = Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
+                
+                response.headers = {
+                    "User-Agent:": random.choice(user_agents),
+                    "Accept": "*/*",
+                    "Accept-Encoding": "identity, deflate, gzip",
+                    "Connection": "Keep-Alive"
+                }
+                
+                return response
             case _:
                 return redirect(stream_url, code=301)
         
