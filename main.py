@@ -793,9 +793,6 @@ def main():
         
         dump_config()
     
-    config["channels"] = []
-    dump_config()
-    
     # Setup.
     servers = []
     mcbash_processes = []
