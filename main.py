@@ -604,9 +604,6 @@ def main():
     mcbash_processes = []
     config = read_config()
     
-    if not os.path.exists(config["stream_path"]):
-        os.mkdir(config["stream_path"])
-    
     setup_servers()
     
     # Check if there are any users, if none create one.
