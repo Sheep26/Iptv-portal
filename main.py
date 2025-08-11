@@ -560,7 +560,7 @@ def web_server():
     @app.route("/play/<server>/<channel>")
     def play(server, channel):
         if session.get("session_id", None) == None:
-            session["session_id"] = request.headers["X-Real-IP"] or request.remote_addr
+            session["session_id"] = request.headers.get("X-Real-IP", request.remote_addr)
         return servers[int(server)].handle_play(channel, session["session_id"], int(request.args.get("proxy", 0)))
     
     app.run("0.0.0.0", 8080)
