@@ -365,10 +365,6 @@ def web_server():
     def return_hls_stream_part(server, channel, file):
         return send_file(os.path.join(config["stream_path"], str(server), channel, file))
     
-    @app.route("/test")
-    def test():
-        return request.headers["CF-Connecting-IP"]
-    
     @app.route("/api/login")
     def login():
         username = request.headers.get("username", None)
@@ -563,7 +559,7 @@ def web_server():
     
     @app.route("/play/<server>/<channel>")
     def play(server, channel):
-        return servers[int(server)].handle_play(channel, request.headers.get("X-Real-IP", request.remote_addr), int(request.args.get("proxy", 0)))
+        return servers[int(server)].handle_play(channel, request.headers.get("CF-Connecting-IP", request.headers.get("X-Real-IP", request.remote_addr)), int(request.args.get("proxy", 0)))
     
     app.run("0.0.0.0", 8080)
 
