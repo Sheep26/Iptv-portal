@@ -367,7 +367,7 @@ def web_server():
     
     @app.route("/test")
     def test():
-        return request.headers["X-Real-IP"]
+        return request.headers["CF-Connecting-IP"]
     
     @app.route("/api/login")
     def login():
