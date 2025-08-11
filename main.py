@@ -559,7 +559,7 @@ def web_server():
     
     @app.route("/play/<server>/<channel>")
     def play(server, channel):
-        print(f"Recieved request {channel} on server {server} with ip {request.headers.get("CF-Connecting-IP", request.headers.get("X-Real-IP", request.remote_addr))}")
+        print(f"Recieved request {channel} on server {server} with ip {request.headers.get('CF-Connecting-IP', request.headers.get('X-Real-IP', request.remote_addr))}")
         return servers[int(server)].handle_play(channel, request.headers.get("CF-Connecting-IP", request.headers.get("X-Real-IP", request.remote_addr)), int(request.args.get("proxy", 0)))
     
     app.run("0.0.0.0", 8080)
