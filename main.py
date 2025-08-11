@@ -633,7 +633,7 @@ def main():
                 print("Timeout.")
 
         for stream_session in stream_sessions:
-            if time.time() - stream_session["timestamp"] > 60*60*10: # Delete sessions that haven't been used in 10 mins.
+            if time.time() - stream_session["timestamp"] > 60*60*60: # Delete sessions that haven't been used in 60 mins.
                 stream_sessions.remove(stream_session)
                 del stream_session
         
