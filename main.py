@@ -789,9 +789,12 @@ def main():
     
     if not os.path.exists(f"{config_dir}/config.json"):
         print("Config missing, creating.")
-        config = {"https": True, "stream_path": "/streams", "ffmpeg_path": None, "iptv_servers": [], "channels": [], "users": []}
+        config = {"https": True, "stream_path": "/streams", "ffmpeg_path": None, "iptv_servers": [], "xtream_servers": [], "channels": [], "users": []}
         
         dump_config()
+    
+    config["channels"] = []
+    dump_config()
     
     # Setup.
     servers = []
