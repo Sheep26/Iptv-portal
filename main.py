@@ -29,6 +29,8 @@ user_agents = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15'
 ]
 
+last_server_update = 0
+
 class Server:
     def __init__(self, id):
         self.channels = config["channels"]
@@ -621,15 +623,16 @@ def main():
     while True:
         time.sleep(60*60) # Update every hour.
         
-        for server in servers:
-            try:
-                if type(server) == IPTVServer:
-                    server.update_macs()
-                    server.update_channels()
-                elif type(server) == XtreamServer:
-                    server.update_channels()
-            except httpx.TimeoutException:
-                print("Timeout.")
+        if time.time() - last_server_update > 60*60*24: # Every day.
+            for server in servers:
+                try:
+                    if type(server) == IPTVServer:
+                        server.update_macs()
+                        server.update_channels()
+                    elif type(server) == XtreamServer:
+                        server.update_channels()
+                except httpx.TimeoutException:
+                    print("Timeout.")
 
         for stream_session in stream_sessions:
             if time.time() - stream_session["timestamp"] > 60*60*30: # Delete sessions that haven't been used the past 30 mins.
@@ -639,6 +642,8 @@ def main():
         dump_config()
         
         gc.collect()
+        
+        last_server_update = time.time()
         
 def exit_handler():
     print("Exitting.")
