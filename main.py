@@ -116,10 +116,14 @@ class XtreamServer:
     def setup(self):
         print(f"Starting setup for {self.url}")
         
-        self.update_channels()
+        try:
+            self.update_channels()
+        except httpx.TimeoutException as e:
+            print(e)
+            print(f"Setup for {self.url} failed.")
     
     def get_m3u(self):
-        m3u_request = self.session.get(f"{self.url}/get.php?username={self.username}&password={self.password}&type=m3u&output=ts")
+        m3u_request = self.session.get(f"{self.url}/get.php?username={self.username}&password={self.password}&type=m3u")
         
         return m3u_request.content
     
