@@ -621,7 +621,7 @@ def main():
     webserver_thread.start()
     
     while True:
-        time.sleep(60*60) # Update every hour.
+        time.sleep(60*30) # Update every 30mins.
         
         if time.time() - last_server_update > 60*60*24: # Every day.
             for server in servers:
@@ -635,7 +635,7 @@ def main():
                     print("Timeout.")
 
         for stream_session in stream_sessions:
-            if time.time() - stream_session["timestamp"] > 60*60*30: # Delete sessions that haven't been used the past 30 mins.
+            if time.time() - stream_session["timestamp"] > 60*30: # Delete sessions that haven't been used the past 30 mins.
                 stream_sessions.remove(stream_session)
                 del stream_session
         
