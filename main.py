@@ -211,6 +211,13 @@ class IPTVServer:
     
     def update_macs(self):
         self.mac_addrs = self.get_macs_from_mcbash(self.mcbash_file)
+        
+        if self.mac_addrs != None:
+            open(self.mcbash_file, "w").close()
+            
+            print(f"There a no mac addrs available on {self.url}.")
+            return
+        
         print(f"There are {len(self.mac_addrs)} mac addrs available on {self.url}.")
     
     def update_channels(self):
@@ -245,6 +252,7 @@ class IPTVServer:
     def mac_free(self, mac, channel):
         try:
             with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={channel}&extension=ts", headers={"User-Agent": self.user_agent}, stream=True) as response:
+                print("Response " + str(response.status_code))
                 if response.status_code == 405: return None
                 return response.status_code == 200
         except requests.exceptions.RequestException as e:
@@ -311,6 +319,9 @@ class IPTVServer:
                 return redirect(stream_url, code=301)
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
+        if not os.path.exists(path):
+            return None
+        
         mac_addrs = []
         with open(path, "r") as f:
             for line in f.readlines():
@@ -352,8 +363,6 @@ def setup_servers():
 
     for server in servers:
         if type(server) == IPTVServer:
-            if not os.path.exists(server.mcbash_file):
-                os.system(f"touch {server.mcbash_file}")
             if server.run_mcbash:
                 mcbash_processes.append(subprocess.Popen(f"mcbash -u {server.url} -w 3 -b 10 -d 5 -s 0 -t 0 --prefix 00:1A:79", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
 
