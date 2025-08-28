@@ -178,7 +178,7 @@ class XtreamServer:
                 return redirect(stream_url, code=301)
         
 class IPTVServer:
-    def __init__(self, url, id, mac_free_needed=True, mcbash_file=None, run_mcbash=True, extention="ts"):
+    def __init__(self, url, id, mac_free_needed=True, mcbash_file=None, run_mcbash=True, extension="ts"):
         self.url = url
         self.mcbash_file = mcbash_file if mcbash_file != None else f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2]}"
         self.mac_addrs = None
@@ -188,7 +188,7 @@ class IPTVServer:
         self.user_agent = random.choice(user_agents)
         self.run_mcbash = run_mcbash
         self.mac_free_needed = mac_free_needed
-        self.extention = extention
+        self.extension = extension
         
         self.setup()
     
@@ -256,7 +256,7 @@ class IPTVServer:
             return True
         
         try:
-            with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={channel}&extension={self.extention}", headers={"User-Agent": self.user_agent}, stream=True) as response:
+            with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={channel}&extension={self.extension}", headers={"User-Agent": self.user_agent}, stream=True) as response:
                 print("Response " + str(response.status_code))
                 if response.status_code == 405: return None
                 return response.status_code == 200
@@ -309,7 +309,7 @@ class IPTVServer:
         user_session["timestamp"] = time.time()
         
         time.sleep(1)
-        stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension={self.extention}"
+        stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension={self.extension}"
         # Proxy the stream
         
         def generate():
@@ -359,7 +359,7 @@ def setup_servers():
                     break
         
         if not found:
-            servers.append(IPTVServer(entry["url"], len(servers), entry.get("mac_free_needed", True), entry.get("mcbash_file", None), entry.get("run_mcbash", True), entry.get("extention", True)))
+            servers.append(IPTVServer(entry["url"], len(servers), entry.get("mac_free_needed", True), entry.get("mcbash_file", None), entry.get("run_mcbash", True), entry.get("extension", True)))
     
     for entry in config["xtream_servers"]:
         servers.append(XtreamServer(entry["url"], len(servers), entry["username"], entry["passwd"], entry.get("stream_prefix", ""), entry.get("stream_suffix", "")))
