@@ -212,7 +212,7 @@ class IPTVServer:
     def update_macs(self):
         self.mac_addrs = self.get_macs_from_mcbash(self.mcbash_file)
         
-        if self.mac_addrs != None:
+        if self.mac_addrs == None:
             open(self.mcbash_file, "w").close()
             
             print(f"There a no mac addrs available on {self.url}.")
