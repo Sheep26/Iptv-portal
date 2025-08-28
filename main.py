@@ -255,7 +255,7 @@ class IPTVServer:
             return True
         
         try:
-            with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={channel}&extension=m3u8", headers={"User-Agent": self.user_agent}, stream=True) as response:
+            with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={channel}&extension=ts", headers={"User-Agent": self.user_agent}, stream=True) as response:
                 print("Response " + str(response.status_code))
                 if response.status_code == 405: return None
                 return response.status_code == 200
@@ -308,7 +308,7 @@ class IPTVServer:
         user_session["timestamp"] = time.time()
         
         time.sleep(1)
-        stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension=m3u8"
+        stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension=ts"
         # Proxy the stream
         
         def generate():
