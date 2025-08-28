@@ -318,6 +318,9 @@ class IPTVServer:
         
         match proxy:
             case 1:
+                if user_session['session'] == None:
+                    user_session['session'] = httpx.Client()
+                
                 return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
             case _:
                 return redirect(stream_url, code=301)
