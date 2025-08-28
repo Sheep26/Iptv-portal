@@ -251,6 +251,9 @@ class IPTVServer:
         return json.loads(request.text)["js"]["token"] if request.status_code == 200 else None
 
     def mac_free(self, mac, channel):
+        if not self.mac_free_needed:
+            return True
+        
         try:
             with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={channel}&extension=m3u8", headers={"User-Agent": self.user_agent}, stream=True) as response:
                 print("Response " + str(response.status_code))
