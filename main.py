@@ -643,6 +643,8 @@ def main():
     webserver_thread = threading.Thread(target=web_server, daemon=True)
     webserver_thread.start()
     
+    last_server_update = time.time()
+    
     while True:
         time.sleep(60*30) # Update every 30mins.
         
