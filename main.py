@@ -270,10 +270,16 @@ class IPTVServer:
         user_session = None
         
         for stream_session in stream_sessions:
-            if stream_session["session_id"] == session_id:
-                user_session = stream_session
-                print(f"Session {session_id} is already using mac {user_session['mac']['addr']}")
+            if stream_session["session_id"] != session_id:
+                continue
+            
+            if stream_session['mac'] == None:
+                stream_sessions.remove(user_session)
                 break
+                
+            user_session = stream_session
+            print(f"Session {session_id} is already using mac {user_session['mac']['addr']}")
+            break
         
         if user_session == None or not self.mac_free(user_session['mac']['addr'], channel):
             if user_session != None:
