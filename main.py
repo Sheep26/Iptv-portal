@@ -274,7 +274,7 @@ class IPTVServer:
                 continue
             
             if stream_session['mac'] == None:
-                stream_sessions.remove(user_session)
+                stream_sessions.remove(stream_session)
                 break
                 
             user_session = stream_session
