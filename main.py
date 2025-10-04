@@ -471,8 +471,10 @@ def web_server():
                 stream_url = f"{server_url}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
                 if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
                 else: file_content += f"\n{stream_url}"
+        response = Response(file_content, mimetype='text/plain')
+        response.headers["Content-Disposition"] = "attachment; filename=index.m3u"
         
-        return Response(file_content, mimetype='text/plain')
+        return response
 
     @app.route("/server/get_channels")
     def get_channels_all():
@@ -588,7 +590,10 @@ def web_server():
             else: file_content += f"\n{stream_url}"
             #file_content += f"\n{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
         
-        return Response(file_content, mimetype='text/plain')
+        response = Response(file_content, mimetype='text/plain')
+        response.headers["Content-Disposition"] = "attachment; filename=index.m3u"
+        
+        return response
     
     @app.route("/play/<server>/<channel>")
     def play(server, channel):
