@@ -467,7 +467,8 @@ def web_server():
                 if found: continue
             
                 file_content += f"\n#EXTINF:-1 tvg-id=\"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
-                stream_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
+                server_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}" if not config["proxy"] else config["proxy_url"]
+                stream_url = f"{server_url}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
                 if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
                 else: file_content += f"\n{stream_url}"
         
@@ -581,7 +582,8 @@ def web_server():
             if found: continue
             
             file_content += f"\n#EXTINF:-1 tvg-id=\"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
-            stream_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
+            server_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}" if not config["proxy"] else config["proxy_url"]
+            stream_url = f"{server_url}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
             if original_links: file_content += f"\n{channel['url'] if type(servers[int(server)]) == Server or type(servers[int(server)]) == XtreamServer else stream_url}"
             else: file_content += f"\n{stream_url}"
             #file_content += f"\n{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
@@ -625,7 +627,7 @@ def main():
     
     if not os.path.exists(f"{config_dir}/config.json"):
         print("Config missing, creating.")
-        config = {"https": True, "iptv_servers": [], "xtream_servers": [], "channels": [], "users": []}
+        config = {"https": True, "proxy": False, "proxy_url": None, "iptv_servers": [], "xtream_servers": [], "channels": [], "users": []}
         
         dump_config()
     
