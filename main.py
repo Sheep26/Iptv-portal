@@ -199,7 +199,7 @@ class IPTVServer:
             # Get mac addrs
             self.update_macs()
             
-            if len(self.mac_addrs) == 0:
+            if len(self.mac_addrs) == None:
                 print(f"Setup for {self.url} failed")
                 return
             
