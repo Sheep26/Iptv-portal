@@ -199,7 +199,7 @@ class IPTVServer:
             # Get mac addrs
             self.update_macs()
             
-            if len(self.mac_addrs) == None:
+            if len(self.mac_addrs) == 0:
                 print(f"Setup for {self.url} failed")
                 return
             
@@ -214,7 +214,7 @@ class IPTVServer:
     def update_macs(self):
         self.mac_addrs = self.get_macs_from_mcbash(self.mcbash_file)
         
-        if self.mac_addrs == None:
+        if len(self.mac_addrs) == 0:
             open(self.mcbash_file, "w").close()
             
             print(f"There a no mac addrs available on {self.url}.")
@@ -334,7 +334,7 @@ class IPTVServer:
     
     def get_macs_from_mcbash(self, path) -> list[dict]:
         if not os.path.exists(path):
-            return None
+            return []
         
         mac_addrs = []
         with open(path, "r") as f:
