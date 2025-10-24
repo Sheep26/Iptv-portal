@@ -180,7 +180,7 @@ class XtreamServer:
 class IPTVServer:
     def __init__(self, url, id, mac_free_needed=True, mcbash_file=None, run_mcbash=True, extension="ts"):
         self.url = url
-        self.mcbash_file = mcbash_file if mcbash_file != None else f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2]}"
+        self.mcbash_file = mcbash_file if mcbash_file != None else f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2].replace(":", "")}"
         self.mac_addrs = None
         self.channels = None
         self.id = id
