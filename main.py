@@ -118,7 +118,7 @@ class XtreamServer:
         
         try:
             self.update_channels()
-        except httpx.TimeoutException as e:
+        except Exception as e:
             print(e)
             print(f"Setup for {self.url} failed.")
     
@@ -669,8 +669,8 @@ def main():
                         server.update_channels()
                     elif type(server) == XtreamServer:
                         server.update_channels()
-                except httpx.TimeoutException:
-                    print("Timeout.")
+                except Exception as e:
+                    print(e)
 
         for stream_session in stream_sessions:
             if time.time() - stream_session["timestamp"] > 60*30: # Delete sessions that haven't been used the past 30 mins.
