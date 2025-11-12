@@ -75,7 +75,7 @@ class Server:
             
             user_session = {
                 "session_id": session_id,
-                "mac": None,
+                "mac": {channel_id: None},
                 "session": req_session,
                 "timestamp": time.time()
             }
@@ -156,7 +156,7 @@ class XtreamServer:
             
             user_session = {
                 "session_id": session_id,
-                "mac": None,
+                "mac": {channel: None},
                 "session": req_session,
                 "timestamp": time.time()
             }
@@ -285,7 +285,7 @@ class IPTVServer:
             if user_session != None:
                 stream_sessions.remove(user_session)
             
-            print(f"Starting session {session_id}")
+            print(f"Starting session {session_id} for channel {channel}")
             
             req_session = None
             if proxy != 0:
@@ -305,12 +305,27 @@ class IPTVServer:
             
             user_session = {
                 "session_id": session_id,
-                "mac": mac,
+                "mac": {channel: mac},
                 "session": req_session,
                 "timestamp": time.time()
             }
             
             stream_sessions.append(user_session)
+        
+        if user_session["mac"].get(channel, None) == None:
+            while True:
+                mac = random.choice(self.mac_addrs)
+                print(f"Trying mac {mac}")
+                
+                mac_free = self.mac_free(mac["addr"], channel)
+                
+                if mac_free == None: return Response(status=500)
+                
+                if mac_free:
+                    print(f"Found mac: {mac}.")
+                    break
+            
+            user_session["mac"][channel] = mac
         
         user_session["timestamp"] = time.time()
         
