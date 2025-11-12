@@ -236,8 +236,6 @@ class IPTVServer:
                 return mac
     
     def handle_play(self, channel, session_id, proxy):
-        print(f"Request for channnel {channel} on server {self.url}")
-
         user_session = None
         
         for stream_session in self.stream_sessions:
@@ -245,10 +243,6 @@ class IPTVServer:
                 continue
             
             user_session = stream_session
-
-            if user_session["mac"].get(channel, None) != None:
-                print(f"Session {session_id} is already using mac {user_session['mac'][channel]['addr']}")
-            
             break
         
         if user_session == None or user_session["mac"].get(channel, None) == None or not self.mac_free(user_session['mac'][channel]['addr'], channel):
@@ -256,8 +250,6 @@ class IPTVServer:
                 user_session[channel] = self.rand_mac(channel)
                 #stream_sessions.remove(user_session)
             else:
-                print(f"Starting session {session_id} for channel {channel}")
-                
                 req_session = None
                 if proxy != 0:
                     req_session = httpx.Client()
