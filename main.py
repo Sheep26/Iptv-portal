@@ -269,7 +269,7 @@ class IPTVServer:
                     "timestamp": time.time()
                 }
                 
-                stream_sessions.append(user_session)
+                self.stream_sessions.append(user_session)
         
         user_session["timestamp"] = time.time()
         
@@ -628,11 +628,14 @@ def main():
                         server.update_channels()
                 except Exception as e:
                     print(e)
+        
 
-        for stream_session in stream_sessions:
-            if time.time() - stream_session["timestamp"] > 60*30: # Delete sessions that haven't been used the past 30 mins.
-                stream_sessions.remove(stream_session)
-                del stream_session
+        for server in servers: # Fuck you good code.
+            if type(server) == IPTVServer:
+                for stream_session in server.stream_sessions:
+                    if time.time() - stream_session["timestamp"] > 60*30: # Delete sessions that haven't been used the past 30 mins.
+                        server.stream_sessions.remove(stream_session)
+                        del stream_session
         
         dump_config()
         
