@@ -321,7 +321,7 @@ class IPTVServer:
         user_session["timestamp"] = time.time()
         
         time.sleep(1)
-        stream_url = f"{self.url}/play/live.php?mac={user_session['mac']['addr']}&stream={channel}&extension={self.extension}"
+        stream_url = f"{self.url}/play/live.php?mac={user_session['mac'][channel]['addr']}&stream={channel}&extension={self.extension}"
         # Proxy the stream
         
         def generate():
