@@ -264,6 +264,20 @@ class IPTVServer:
             print(f"Request failed: {e}")
             return False
     
+    def rand_mac(self, channel):
+        while True:
+            mac = random.choice(self.mac_addrs)
+            print(f"Trying mac {mac}")
+                    
+            mac_free = self.mac_free(mac["addr"], channel)
+                    
+            if mac_free == None: return Response(status=500)
+                    
+            if mac_free:
+                print(f"Found mac: {mac}.")
+
+                return mac
+    
     def handle_play(self, channel, session_id, proxy):
         print(f"Request for channnel {channel} on server {self.url}")
 
@@ -278,54 +292,31 @@ class IPTVServer:
                 break
                 
             user_session = stream_session
-            print(f"Session {session_id} is already using mac {user_session['mac']['addr']}")
+            print(f"Session {session_id} is already using mac {user_session['mac'][channel]['addr']}")
             break
         
-        if user_session == None or not self.mac_free(user_session['mac']['addr'], channel):
+        if user_session == None or not self.mac_free(user_session['mac'][channel]['addr'], channel):
             if user_session != None:
-                stream_sessions.remove(user_session)
-            
-            print(f"Starting session {session_id} for channel {channel}")
-            
-            req_session = None
-            if proxy != 0:
-                req_session = httpx.Client()
-            
-            while True:
-                mac = random.choice(self.mac_addrs)
-                print(f"Trying mac {mac}")
+                user_session[channel] = self.rand_mac(channel)
+                #stream_sessions.remove(user_session)
+            else:
+                print(f"Starting session {session_id} for channel {channel}")
                 
-                mac_free = self.mac_free(mac["addr"], channel)
+                req_session = None
+                if proxy != 0:
+                    req_session = httpx.Client()
                 
-                if mac_free == None: return Response(status=500)
+                user_session = {
+                    "session_id": session_id,
+                    "mac": {channel: self.rand_mac(channel)},
+                    "session": req_session,
+                    "timestamp": time.time()
+                }
                 
-                if mac_free:
-                    print(f"Found mac: {mac}.")
-                    break
-            
-            user_session = {
-                "session_id": session_id,
-                "mac": {channel: mac},
-                "session": req_session,
-                "timestamp": time.time()
-            }
-            
-            stream_sessions.append(user_session)
+                stream_sessions.append(user_session)
         
         if user_session["mac"].get(channel, None) == None:
-            while True:
-                mac = random.choice(self.mac_addrs)
-                print(f"Trying mac {mac}")
-                
-                mac_free = self.mac_free(mac["addr"], channel)
-                
-                if mac_free == None: return Response(status=500)
-                
-                if mac_free:
-                    print(f"Found mac: {mac}.")
-                    break
-            
-            user_session["mac"][channel] = mac
+            user_session["mac"][channel] = self.rand_mac(channel)
         
         user_session["timestamp"] = time.time()
         
