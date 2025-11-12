@@ -75,7 +75,7 @@ class Server:
             
             user_session = {
                 "session_id": session_id,
-                "mac": {channel_id: None},
+                "mac": {},
                 "session": req_session,
                 "timestamp": time.time()
             }
@@ -156,7 +156,7 @@ class XtreamServer:
             
             user_session = {
                 "session_id": session_id,
-                "mac": {channel: None},
+                "mac": {},
                 "session": req_session,
                 "timestamp": time.time()
             }
