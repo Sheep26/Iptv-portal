@@ -295,7 +295,7 @@ class IPTVServer:
             print(f"Session {session_id} is already using mac {user_session['mac'][channel]['addr']}")
             break
         
-        if user_session == None or not self.mac_free(user_session['mac'][channel]['addr'], channel):
+        if user_session == None or user_session["mac"].get(channel, None) == None or not self.mac_free(user_session['mac'][channel]['addr'], channel):
             if user_session != None:
                 user_session[channel] = self.rand_mac(channel)
                 #stream_sessions.remove(user_session)
@@ -314,9 +314,6 @@ class IPTVServer:
                 }
                 
                 stream_sessions.append(user_session)
-        
-        if user_session["mac"].get(channel, None) == None:
-            user_session["mac"][channel] = self.rand_mac(channel)
         
         user_session["timestamp"] = time.time()
         
