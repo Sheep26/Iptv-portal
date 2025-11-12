@@ -35,6 +35,7 @@ class Server:
     def __init__(self, id):
         self.channels = config["channels"]
         self.id = id
+        self.session = httpx.Client()
         self.user_agent = random.choice(user_agents)
     
     def add_channel(self, name, logo, url):
@@ -61,33 +62,10 @@ class Server:
         dump_config()
     
     def handle_play(self, channel_id, session_id, proxy):
-        user_session = None
-        
-        for stream_session in stream_sessions:
-            if stream_session["session_id"] == session_id:
-                user_session = stream_session
-                break
-        
-        if user_session == None:
-            req_session = None
-            if proxy != 0:
-                req_session = httpx.Client()
-            
-            user_session = {
-                "session_id": session_id,
-                "mac": {},
-                "session": req_session,
-                "timestamp": time.time()
-            }
-            
-            stream_sessions.append(user_session)
-        
         for channel in self.channels:
             if channel["id"] == int(channel_id):
-                user_session["timestamp"] = time.time()
-                
                 def generate():
-                    with user_session['session'].stream("GET", channel["url"], follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+                    with self.session.stream("GET", channel["url"], follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
                         for chunk in r.iter_bytes(chunk_size=8192):
                             yield chunk
         
@@ -142,32 +120,10 @@ class XtreamServer:
         print(f"{self.url} has {len(self.channels)} channels.")
     
     def handle_play(self, channel, session_id, proxy):
-        user_session = None
-        
-        for stream_session in stream_sessions:
-            if stream_session["session_id"] == session_id:
-                user_session = stream_session
-                break
-        
-        if user_session == None:
-            req_session = None
-            if proxy != 0:
-                req_session = httpx.Client()
-            
-            user_session = {
-                "session_id": session_id,
-                "mac": {},
-                "session": req_session,
-                "timestamp": time.time()
-            }
-            
-            stream_sessions.append(user_session)
-        
-        user_session["timestamp"] = time.time()
         stream_url = f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel}{self.stream_suffix}"
         
         def generate():
-            with user_session['session'].stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
+            with self.session.stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
                 for chunk in r.iter_bytes(chunk_size=8192):
                     yield chunk
         
@@ -189,6 +145,7 @@ class IPTVServer:
         self.run_mcbash = run_mcbash
         self.mac_free_needed = mac_free_needed
         self.extension = extension
+        self.stream_sessions = []
         
         self.setup()
     
@@ -283,7 +240,7 @@ class IPTVServer:
 
         user_session = None
         
-        for stream_session in stream_sessions:
+        for stream_session in self.stream_sessions:
             if stream_session["session_id"] != session_id:
                 continue
             
@@ -385,14 +342,12 @@ def setup_servers():
     last_server_update = time.time()
 
 def web_server():
-    global stream_sessions
     global login_sessions
     app = Flask(__name__)
     CORS(app)
     app.secret_key = rand_str(32)
     
     login_sessions = []
-    stream_sessions = []
     
     @app.route("/hls/<server>/<channel>/<file>")
     def return_hls_stream_part(server, channel, file):
