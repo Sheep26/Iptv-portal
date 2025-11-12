@@ -244,10 +244,10 @@ class IPTVServer:
             
             user_session = stream_session
             break
-        print(user_session["mac"].get(channel, None))
+        
         if user_session == None or user_session["mac"].get(channel, None) == None or not self.mac_free(user_session['mac'][channel]['addr'], channel):
             if user_session != None:
-                user_session[channel] = self.rand_mac(channel)
+                user_session["mac"][channel] = self.rand_mac(channel)
                 #stream_sessions.remove(user_session)
             else:
                 req_session = None
