@@ -287,10 +287,6 @@ class IPTVServer:
             if stream_session["session_id"] != session_id:
                 continue
             
-            if stream_session['mac'] == None:
-                stream_sessions.remove(stream_session)
-                break
-                
             user_session = stream_session
 
             if user_session["mac"].get(channel, None) != None:
