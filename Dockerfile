@@ -14,6 +14,7 @@ RUN apt install bash -y
 RUN apt install curl -y
 RUN apt install wget -y
 RUN apt install git -y
+RUN apt install bc -y
 RUN git clone https://github.com/dougy147/mcbash
 RUN mv ./mcbash/* ./
 RUN make install
