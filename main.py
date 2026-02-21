@@ -433,9 +433,9 @@ def web_server():
                 if found: continue
                 
                 tvg_id = channel.get('epg_channel_id', f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}")
-                if tvg_id == "$None":
-                    tvg_id = f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}"
-
+                if tvg_id==None:
+                    tvg_id = f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}"
+                
                 file_content += f"\n#EXTINF:-1 tvg-id=\"{tvg_id}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
                 server_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}" if not config["proxy"] else config["proxy_url"]
                 stream_url = f"{server_url}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
@@ -558,7 +558,7 @@ def web_server():
             if found: continue
             
             tvg_id = channel.get('epg_channel_id', f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}")
-            if tvg_id == "$None":
+            if tvg_id == None:
                 tvg_id = f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}"
             
             file_content += f"\n#EXTINF:-1 tvg-id=\"{tvg_id}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
