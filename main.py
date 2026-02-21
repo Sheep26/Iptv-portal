@@ -38,6 +38,12 @@ class Server:
         self.session = httpx.Client()
         self.user_agent = random.choice(user_agents)
     
+    def get_epg(self):
+        return None
+    
+    def get_epg_channel(self, channel):
+        return None
+    
     def add_channel(self, name, logo, url):
         config["channels"].append({
             "id": int(len(config["channels"])),
@@ -77,7 +83,7 @@ class Server:
         
         return Response(status=500)
 
-class XtreamServer:
+class XtreamServer(Server):
     def __init__(self, url, id, username, password, stream_prefix="", stream_suffix=""):
         self.url = url
         self.username = username
@@ -105,6 +111,16 @@ class XtreamServer:
         
         return m3u_request.content
     
+    def get_epg(self):
+        epg_request = self.session.get(f"{self.url}/xmltv.php?username={self.username}&password={self.password}")
+
+        return epg_request.text
+    
+    def get_epg_channel(self, channel):
+        epg_request = self.session.get(f"{self.url}/player_api.php?username={self.username}&password={self.password}&action=get_simple_data_table&stream_id={channel}")
+
+        return epg_request.text
+    
     def update_channels(self):
         self.channels.clear()
         channels_request = self.session.get(f"{self.url}/player_api.php?username={self.username}&password={self.password}&action=get_live_streams", headers={"User-Agent": self.user_agent})
@@ -114,6 +130,7 @@ class XtreamServer:
                 "id": channel["stream_id"],
                 "name": channel["name"],
                 "logo": channel["stream_icon"],
+                "epg_channel_id": channel["epg_channel_id"],
                 "url": f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel['stream_id']}{self.stream_suffix}"
             })
         
@@ -132,8 +149,8 @@ class XtreamServer:
                 return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
             case _:
                 return redirect(stream_url, code=301)
-        
-class IPTVServer:
+
+class IPTVServer(Server):
     def __init__(self, url, id, mac_free_needed=True, mcbash_file=None, run_mcbash=True, extension="ts"):
         self.url = url
         self.mcbash_file = mcbash_file if mcbash_file != None else f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2].replace(':', '')}"
@@ -414,8 +431,9 @@ def web_server():
                         found = True
                         break
                 if found: continue
-            
-                file_content += f"\n#EXTINF:-1 tvg-id=\"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
+                
+                tvg_id = channel.get('epg_channel_id', f'{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}')
+                file_content += f"\n#EXTINF:-1 tvg-id=\"${tvg_id}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
                 server_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}" if not config["proxy"] else config["proxy_url"]
                 stream_url = f"{server_url}/play/{server.id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
                 if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
@@ -512,6 +530,10 @@ def web_server():
 
         return Response(status=403)
     
+    @app.route("/server/<server>/get_epg")
+    def get_epg(server):
+        return servers[int(server)].get_epg()
+    
     @app.route("/server/<server>/get_m3u")
     def get_m3u(server):
         search = request.args.get("search", None)
@@ -532,7 +554,8 @@ def web_server():
                     break
             if found: continue
             
-            file_content += f"\n#EXTINF:-1 tvg-id=\"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
+            tvg_id = channel.get('epg_channel_id', f'{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}')
+            file_content += f"\n#EXTINF:-1 tvg-id=\"{tvg_id}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
             server_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}" if not config["proxy"] else config["proxy_url"]
             stream_url = f"{server_url}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
             if original_links: file_content += f"\n{channel['url'] if type(servers[int(server)]) == Server or type(servers[int(server)]) == XtreamServer else stream_url}"
