@@ -44,6 +44,9 @@ class Server:
     def get_epg_channel(self, channel):
         return None
     
+    def get_channels(self):
+        return self.channels
+    
     def add_channel(self, name, logo, url):
         config["channels"].append({
             "id": int(len(config["channels"])),
@@ -55,7 +58,7 @@ class Server:
         dump_config()
     
     def remove_channel(self, name=None, id=None):
-        for channel in self.channels:
+        for channel in self.get_channels():
             if name != None:
                 if channel["name"] == name:
                     config["channels"].remove(channel)
@@ -68,7 +71,7 @@ class Server:
         dump_config()
     
     def handle_play(self, channel_id, session_id, proxy):
-        for channel in self.channels:
+        for channel in self.get_channels():
             if channel["id"] == int(channel_id):
                 def generate():
                     with self.session.stream("GET", channel["url"], follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
@@ -405,7 +408,7 @@ def web_server():
     
     @app.route("/server/<server>/get_channels")
     def get_channels(server):
-        return servers[int(server)].channels
+        return servers[int(server)].get_channels()
     
     @app.route("/server/<server>/get_xtream_m3u")
     def get_xtream_m3u(server):
@@ -419,7 +422,7 @@ def web_server():
         
         file_content = "#EXTM3U"
         for server in servers:
-            for channel in server.channels:
+            for channel in server.get_channels():
                 if search != None:
                     if not search.lower() in channel["name"].lower():
                         continue
@@ -450,7 +453,7 @@ def web_server():
     def get_channels_all():
         channels = []
         for server in servers:
-            for channel in server.channels:
+            for channel in server.get_channels():
                 channels.append(channel)
         
         return channels
@@ -544,7 +547,7 @@ def web_server():
         exclude = json.loads(request.args.get("exclude", "[]"))
         
         file_content = "#EXTM3U"
-        for channel in servers[int(server)].channels:
+        for channel in servers[int(server)].get_channels():
             if search != None:
                 if not search.lower() in channel["name"].lower():
                     continue
@@ -650,7 +653,6 @@ def main():
                 except Exception as e:
                     print(e)
         
-
         for server in servers: # Fuck you good code.
             if type(server) == IPTVServer:
                 for stream_session in server.stream_sessions:
@@ -659,8 +661,6 @@ def main():
                         del stream_session
         
         dump_config()
-        
-        gc.collect()
         
         last_server_update = time.time()
         
