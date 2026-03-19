@@ -19,6 +19,12 @@ RUN git clone https://github.com/dougy147/mcbash
 RUN mv ./mcbash/* ./
 RUN make build
 RUN mv ./bin/mcbash ./mcbash
+RUN cp -f mcbash.conf /etc/mcbash.conf
+RUN chmod 644 /etc/mcbash.conf
+RUN chmod 755 ./mcbash
+RUN mkdir /root/.config/mcbash
+RUN cp -f mcbash.conf /root/.config/mcbash/mcbash.conf
+RUN chmod 777 /root/.config/mcbash/mcbash.conf
 
 RUN pip install flask
 RUN pip install requests
