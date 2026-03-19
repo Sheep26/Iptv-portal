@@ -17,7 +17,8 @@ RUN apt install git -y
 RUN apt install bc -y
 RUN git clone https://github.com/dougy147/mcbash
 RUN mv ./mcbash/* ./
-RUN make install
+RUN make build
+RUN mv ./bin/mcbash ./mcbash
 
 RUN pip install flask
 RUN pip install requests
