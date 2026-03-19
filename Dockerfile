@@ -22,6 +22,7 @@ RUN mv ./bin/mcbash ./mcbash
 RUN cp -f mcbash.conf /etc/mcbash.conf
 RUN chmod 644 /etc/mcbash.conf
 RUN chmod 755 ./mcbash
+RUN mkdir /root/.config
 RUN mkdir /root/.config/mcbash
 RUN cp -f mcbash.conf /root/.config/mcbash/mcbash.conf
 RUN chmod 777 /root/.config/mcbash/mcbash.conf
