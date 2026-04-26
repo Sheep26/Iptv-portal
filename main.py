@@ -31,12 +31,23 @@ user_agents = [
 
 last_server_update = 0
 
+class Channel:
+    def __init__(self, id, name, logo, url, epg_channel_id=None):
+        self.id = id
+        self.name = name
+        self.logo = logo
+        self.url = url
+        self.epg_channel_id = epg_channel_id
+
 class Server:
     def __init__(self, id):
-        self.channels = config["channels"]
+        self.channels = []
         self.id = id
         self.session = httpx.Client()
         self.user_agent = random.choice(user_agents)
+
+        for channel in config["channels"]:
+            self.channels.append(Channel(channel['id'], channel['name'], channel['logo'], channel['url']))
     
     def get_epg(self):
         return None
@@ -48,26 +59,16 @@ class Server:
         return self.channels
     
     def add_channel(self, name, logo, url):
+        id = int(len(config["channels"]))
+
         config["channels"].append({
-            "id": int(len(config["channels"])),
+            "id": id,
             "name": name,
             "logo": logo,
             "url": url,
         })
-        
-        dump_config()
-    
-    def remove_channel(self, name=None, id=None):
-        for channel in self.get_channels():
-            if name != None:
-                if channel["name"] == name:
-                    config["channels"].remove(channel)
-                    break
-            if id != None:
-                if channel["id"] == id:
-                    config["channels"].remove(channel)
-                    break
-        
+
+        self.channels.append(Channel(id, name, logo, url))
         dump_config()
     
     def handle_play(self, channel_id, session_id, proxy):
@@ -444,6 +445,7 @@ def web_server():
                 stream_url = f"{server_url}/play/{server.id}/{channel['id']}"
                 if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
                 else: file_content += f"\n{stream_url}"
+
         response = Response(file_content, mimetype='text/plain')
         response.headers["Content-Disposition"] = "attachment; filename=index.m3u"
         
@@ -471,23 +473,6 @@ def web_server():
                 if login_session["session_id"] == session_id and login_session["user"]["admin"]:
                     server.add_channel(name, logo, url)
                     
-                    return Response(status=200)
-        else: return Response(status=500)
-        
-        return Response(status=403)
-    
-    @app.route("/server/<server_id>/remove_channel")
-    def remove_channel(server_id):
-        server = servers[int(server_id)]
-        if type(server) == Server:
-            session_id = request.headers.get("session", None)
-            name = request.args.get("name", None)
-            id = request.args.get("id", None)
-            
-            for login_session in login_sessions:
-                if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                    server.remove_channel(name, id)
-            
                     return Response(status=200)
         else: return Response(status=500)
         
@@ -561,9 +546,10 @@ def web_server():
             if found: continue
             
             tvg_id = channel.get('epg_channel_id', f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}")
+
             if tvg_id == None:
                 tvg_id = f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}"
-            
+
             file_content += f"\n#EXTINF:-1 tvg-id=\"{tvg_id}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
             server_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}" if not config["proxy"] or int(request.args.get('noproxy', 0)) == 1 else config["proxy_url"]
             stream_url = f"{server_url}/play/{servers[int(server)].id}/{channel['id']}"
