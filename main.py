@@ -295,7 +295,7 @@ def main():
     
     if not os.path.exists(f"{config_dir}/config.json"):
         print("Config missing, creating.")
-        config = {"https": False, "proxy": False, "proxy_url": None, "xtream_servers": [], "channels": []}
+        config = {"https": False, "proxy": True, "proxy_url": "http://localhost:5000", "xtream_servers": [], "channels": []}
         
         dump_config()
 
