@@ -15,6 +15,6 @@ RUN pip install flask-cors
 
 COPY . .
 
-RUN chmod +x /app/start.sh
+RUN chmod +x ./start.sh
 
-CMD ["/usr/bin/bash", "/app/start.sh"]
+CMD ["/usr/bin/bash", "./start.sh"]
