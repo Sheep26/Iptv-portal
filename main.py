@@ -29,6 +29,11 @@ last_server_update = 0
 def rand_str(len = 32):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=len))
 
+app = Flask(__name__)
+CORS(app)
+app.secret_key = rand_str(32)
+login_sessions = []
+
 class Server:
     def __init__(self, id):
         self.channels = config["channels"]
@@ -156,12 +161,6 @@ def setup_servers():
         servers.append(XtreamServer(entry["url"], len(servers), entry["username"], entry["passwd"], entry.get("stream_prefix", ""), entry.get("stream_suffix", "")))
 
     last_server_update = time.time()
-
-app = Flask(__name__)
-CORS(app)
-app.secret_key = rand_str(32)
-
-login_sessions = []
 
 @app.route("/hls/<server>/<channel>/<file>")
 def return_hls_stream_part(server, channel, file):
