@@ -26,6 +26,9 @@ user_agents = [
 
 last_server_update = 0
 
+def rand_str(len = 32):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=len))
+
 class Server:
     def __init__(self, id):
         self.channels = config["channels"]
@@ -154,202 +157,197 @@ def setup_servers():
 
     last_server_update = time.time()
 
-def web_server():
-    global login_sessions
-    app = Flask(__name__)
-    CORS(app)
-    app.secret_key = rand_str(32)
-    
-    login_sessions = []
-    
-    @app.route("/hls/<server>/<channel>/<file>")
-    def return_hls_stream_part(server, channel, file):
-        return send_file(os.path.join(config["stream_path"], str(server), channel, file))
-    
-    @app.route("/api/login")
-    def login():
-        username = request.headers.get("username", None)
-        passwd = request.headers.get("passwd", None)
-        
-        for user in config["users"]:
-            if user["username"] != username: return Response(status=403)
-            if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
-        
-            session_id = rand_str(32)
-            
-            login_sessions.append({
-                "session_id": session_id,
-                "user": user,
-            })
-            
-            return session_id
-        
-        return Response(status=403)
-    
-    @app.route("/api/logout")
-    def logout():
-        session_id = request.headers.get("session", None)
-        
-        for login_session in login_sessions:
-            if login_session["session_id"] == session_id:
-                login_sessions.remove(login_session)
-                return Response(status=200)
-        
-        return Response(status=403)
-    
-    @app.route("/api/get_user")
-    def get_user():
-        session_id = request.headers.get("session", None)
-        
-        for login_session in login_sessions:
-            if login_session["session_id"] == session_id:
-                return login_session["user"]
-        
-        return Response(status=403)
-    
-    @app.route("/server/<server>/get_channels")
-    def get_channels(server):
-        return servers[int(server)].get_channels()
-    
-    @app.route("/server/<server>/get_xtream_m3u")
-    def get_xtream_m3u(server):
-        return servers[int(server)].get_m3u() if type(servers[int(server)]) == XtreamServer else Response(status=400)
-    
-    @app.route("/server/get_m3u")
-    def get_m3u_all():
-        search = request.args.get("search", None)
-        original_links = request.args.get("original_links", 0)
-        exclude = json.loads(request.args.get("exclude", "[]"))
-        
-        file_content = "#EXTM3U"
-        for server in servers:
-            for channel in server.get_channels():
-                if search != None:
-                    if not search.lower() in channel["name"].lower():
-                        continue
-                
-                found = False
-            
-                for exclude_url in exclude:
-                    if exclude_url.lower() in channel["name"].lower():
-                        found = True
-                        break
-                if found: continue
-                
-                tvg_id = channel.get('epg_channel_id', f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}")
-                if tvg_id==None:
-                    tvg_id = f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}"
-                
-                file_content += f"\n#EXTINF:-1 tvg-id=\"{tvg_id}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
-                server_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}" if not config["proxy"] or int(request.args.get('noproxy', 0)) == 1 else config["proxy_url"]
-                stream_url = f"{server_url}/play/{server.id}/{channel['id']}"
-                if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
-                else: file_content += f"\n{stream_url}"
-        response = Response(file_content, mimetype='text/plain')
-        response.headers["Content-Disposition"] = "attachment; filename=index.m3u"
-        
-        return response
+app = Flask(__name__)
+CORS(app)
+app.secret_key = rand_str(32)
 
-    @app.route("/server/get_channels")
-    def get_channels_all():
-        channels = []
-        for server in servers:
-            for channel in server.get_channels():
-                channels.append(channel)
-        
-        return channels
-    
-    @app.route("/server/<server_id>/add_channel")
-    def add_channel(server_id):
-        server = servers[int(server_id)]
-        if type(server) == Server:
-            session_id = request.headers.get("session", None)
-            name = request.args.get("name", None)
-            logo = request.args.get("logo", None)
-            url = request.args.get("url", None)
-            
-            for login_session in login_sessions:
-                if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                    server.add_channel(name, logo, url)
-                    
-                    return Response(status=200)
-        else: return Response(status=500)
-        
-        return Response(status=403)
-    
-    @app.route("/server/<server_id>/remove_channel")
-    def remove_channel(server_id):
-        server = servers[int(server_id)]
-        if type(server) == Server:
-            session_id = request.headers.get("session", None)
-            name = request.args.get("name", None)
-            id = request.args.get("id", None)
-            
-            for login_session in login_sessions:
-                if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                    server.remove_channel(name, id)
-            
-                    return Response(status=200)
-        else: return Response(status=500)
-        
-        return Response(status=403)
-    
-    @app.route("/server/<server>/get_epg")
-    def get_epg(server):
-        return servers[int(server)].get_epg()
+login_sessions = []
 
-    @app.route('/server/<server>/health_check')
-    def health_check(server):
-        try:
-            return Response(200 if servers[server].health_check() else 418)
-        except:
-            return Response(418)
+@app.route("/hls/<server>/<channel>/<file>")
+def return_hls_stream_part(server, channel, file):
+    return send_file(os.path.join(config["stream_path"], str(server), channel, file))
 
-    @app.route("/server/<server>/get_m3u")
-    def get_m3u(server):
-        search = request.args.get("search", None)
-        original_links = request.args.get("original_links", 0)
-        exclude = json.loads(request.args.get("exclude", "[]"))
+@app.route("/api/login")
+def login():
+    username = request.headers.get("username", None)
+    passwd = request.headers.get("passwd", None)
+    
+    for user in config["users"]:
+        if user["username"] != username: return Response(status=403)
+        if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
+    
+        session_id = rand_str(32)
         
-        file_content = "#EXTM3U"
-        for channel in servers[int(server)].get_channels():
+        login_sessions.append({
+            "session_id": session_id,
+            "user": user,
+        })
+        
+        return session_id
+    
+    return Response(status=403)
+
+@app.route("/api/logout")
+def logout():
+    session_id = request.headers.get("session", None)
+    
+    for login_session in login_sessions:
+        if login_session["session_id"] == session_id:
+            login_sessions.remove(login_session)
+            return Response(status=200)
+    
+    return Response(status=403)
+
+@app.route("/api/get_user")
+def get_user():
+    session_id = request.headers.get("session", None)
+    
+    for login_session in login_sessions:
+        if login_session["session_id"] == session_id:
+            return login_session["user"]
+    
+    return Response(status=403)
+
+@app.route("/server/<server>/get_channels")
+def get_channels(server):
+    return servers[int(server)].get_channels()
+
+@app.route("/server/<server>/get_xtream_m3u")
+def get_xtream_m3u(server):
+    return servers[int(server)].get_m3u() if type(servers[int(server)]) == XtreamServer else Response(status=400)
+
+@app.route("/server/get_m3u")
+def get_m3u_all():
+    search = request.args.get("search", None)
+    original_links = request.args.get("original_links", 0)
+    exclude = json.loads(request.args.get("exclude", "[]"))
+    
+    file_content = "#EXTM3U"
+    for server in servers:
+        for channel in server.get_channels():
             if search != None:
                 if not search.lower() in channel["name"].lower():
                     continue
             
             found = False
-            
+        
             for exclude_url in exclude:
                 if exclude_url.lower() in channel["name"].lower():
                     found = True
                     break
             if found: continue
             
-            tvg_id = channel.get('epg_channel_id', f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}")
-            if tvg_id == None:
-                tvg_id = f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}"
+            tvg_id = channel.get('epg_channel_id', f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}")
+            if tvg_id==None:
+                tvg_id = f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{server.id}.{channel['id']}"
             
             file_content += f"\n#EXTINF:-1 tvg-id=\"{tvg_id}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
             server_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}" if not config["proxy"] or int(request.args.get('noproxy', 0)) == 1 else config["proxy_url"]
-            stream_url = f"{server_url}/play/{servers[int(server)].id}/{channel['id']}"
-            if original_links: file_content += f"\n{channel['url'] if type(servers[int(server)]) == Server or type(servers[int(server)]) == XtreamServer else stream_url}"
+            stream_url = f"{server_url}/play/{server.id}/{channel['id']}"
+            if original_links: file_content += f"\n{channel['url'] if type(server) == Server or type(server) == XtreamServer else stream_url}"
             else: file_content += f"\n{stream_url}"
-            #file_content += f"\n{'https' if config['https'] else 'http'}://{request.url.split('/')[2].replace(':', '')}/play/{servers[int(server)].id}/{channel['id']}?proxy={int(request.args.get('proxy', 0))}"
-        
-        response = Response(file_content, mimetype='text/plain')
-        response.headers["Content-Disposition"] = "attachment; filename=index.m3u"
-        
-        return response
+    response = Response(file_content, mimetype='text/plain')
+    response.headers["Content-Disposition"] = "attachment; filename=index.m3u"
     
-    @app.route("/play/<server>/<channel>")
-    def play(server, channel):
-        print(f"Recieved request {channel} on server {server} with ip {request.headers.get('CF-Connecting-IP', request.headers.get('X-Real-IP', request.remote_addr))}")
-        return servers[int(server)].handle_play(channel, request.headers.get("CF-Connecting-IP", request.headers.get("X-Real-IP", request.remote_addr)))
-    
-    app.run("0.0.0.0", 8080)
+    return response
 
-def rand_str(len = 32):
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=len))
+@app.route("/server/get_channels")
+def get_channels_all():
+    channels = []
+    for server in servers:
+        for channel in server.get_channels():
+            channels.append(channel)
+    
+    return channels
+
+@app.route("/server/<server_id>/add_channel")
+def add_channel(server_id):
+    server = servers[int(server_id)]
+    if type(server) == Server:
+        session_id = request.headers.get("session", None)
+        name = request.args.get("name", None)
+        logo = request.args.get("logo", None)
+        url = request.args.get("url", None)
+        
+        for login_session in login_sessions:
+            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
+                server.add_channel(name, logo, url)
+                
+                return Response(status=200)
+    else: return Response(status=500)
+    
+    return Response(status=403)
+
+@app.route("/server/<server_id>/remove_channel")
+def remove_channel(server_id):
+    server = servers[int(server_id)]
+    if type(server) == Server:
+        session_id = request.headers.get("session", None)
+        name = request.args.get("name", None)
+        id = request.args.get("id", None)
+        
+        for login_session in login_sessions:
+            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
+                server.remove_channel(name, id)
+        
+                return Response(status=200)
+    else: return Response(status=500)
+    
+    return Response(status=403)
+
+@app.route("/server/<server>/get_epg")
+def get_epg(server):
+    return servers[int(server)].get_epg()
+
+@app.route('/server/<server>/health_check')
+def health_check(server):
+    try:
+        return Response(200 if servers[server].health_check() else 418)
+    except:
+        return Response(418)
+
+@app.route("/server/<server>/get_m3u")
+def get_m3u(server):
+    search = request.args.get("search", None)
+    original_links = request.args.get("original_links", 0)
+    exclude = json.loads(request.args.get("exclude", "[]"))
+    
+    file_content = "#EXTM3U"
+    for channel in servers[int(server)].get_channels():
+        if search != None:
+            if not search.lower() in channel["name"].lower():
+                continue
+        
+        found = False
+        
+        for exclude_url in exclude:
+            if exclude_url.lower() in channel["name"].lower():
+                found = True
+                break
+        if found: continue
+        
+        tvg_id = channel.get('epg_channel_id', f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}")
+        if tvg_id == None:
+            tvg_id = f"{channel['name'].replace(' ', '').replace('(', '').replace(')', '')}.{servers[int(server)].id}.{channel['id']}"
+        
+        file_content += f"\n#EXTINF:-1 tvg-id=\"{tvg_id}\" tvg-logo=\"{channel['logo']}\" group-title=\"{channel['name']}\",{channel['name']}"
+        server_url = f"{'https' if config['https'] else 'http'}://{request.url.split('/')[2]}" if not config["proxy"] or int(request.args.get('noproxy', 0)) == 1 else config["proxy_url"]
+        stream_url = f"{server_url}/play/{servers[int(server)].id}/{channel['id']}"
+        if original_links: file_content += f"\n{channel['url'] if type(servers[int(server)]) == Server or type(servers[int(server)]) == XtreamServer else stream_url}"
+        else: file_content += f"\n{stream_url}"
+    
+    response = Response(file_content, mimetype='text/plain')
+    response.headers["Content-Disposition"] = "attachment; filename=index.m3u"
+    
+    return response
+
+@app.route("/play/<server>/<channel>")
+def play(server, channel):
+    print(f"Recieved request {channel} on server {server} with ip {request.headers.get('CF-Connecting-IP', request.headers.get('X-Real-IP', request.remote_addr))}")
+    return servers[int(server)].handle_play(channel, request.headers.get("CF-Connecting-IP", request.headers.get("X-Real-IP", request.remote_addr)))
+
+def start_web_server():
+    app.run("0.0.0.0", 8080)
 
 def read_config():
     with open(f"{config_dir}/config.json", "r") as f:
@@ -398,7 +396,7 @@ def main():
 
         dump_config()
     
-    webserver_thread = threading.Thread(target=web_server, daemon=True)
+    webserver_thread = threading.Thread(target=start_web_server, daemon=True)
     webserver_thread.start()
     
     last_server_update = time.time()
