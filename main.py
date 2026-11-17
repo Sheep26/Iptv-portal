@@ -378,7 +378,7 @@ def main():
         config = {"https": True, "proxy": False, "proxy_url": None, "xtream_servers": [], "channels": [], "users": []}
         
         dump_config()
-    
+
     # Setup.
     servers = []
     config = read_config()
