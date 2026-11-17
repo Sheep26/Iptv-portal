@@ -23,8 +23,6 @@ user_agents = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15'
 ]
 
-last_server_update = 0
-
 def rand_str(len = 32):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=len))
 
@@ -281,7 +279,6 @@ def main():
     global servers
     global config
     global config_dir
-    global last_server_update
     
     atexit.register(exit_handler)
     
@@ -296,7 +293,7 @@ def main():
     if not os.path.exists(f"{config_dir}/config.json"):
         print("Config missing, creating.")
         config = {"https": False, "proxy": True, "proxy_url": "http://localhost:5000", "xtream_servers": [], "channels": []}
-        
+
         dump_config()
 
     # Setup.
@@ -307,8 +304,6 @@ def main():
 
     webserver_thread = threading.Thread(target=start_web_server, daemon=True)
     webserver_thread.start()
-
-    last_server_update = time.time()
 
     while True:
         time.sleep(60*60*24) # Every day
