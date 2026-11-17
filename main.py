@@ -6,7 +6,6 @@ import json
 import threading
 import random
 import os
-import hashlib
 import string
 import sys
 import atexit
@@ -32,7 +31,6 @@ def rand_str(len = 32):
 app = Flask(__name__)
 CORS(app)
 app.secret_key = rand_str(32)
-login_sessions = []
 
 class Server:
     def __init__(self, id):
@@ -160,52 +158,9 @@ def setup_servers():
     for entry in config["xtream_servers"]:
         servers.append(XtreamServer(entry["url"], len(servers), entry["username"], entry["passwd"], entry.get("stream_prefix", ""), entry.get("stream_suffix", "")))
 
-    last_server_update = time.time()
-
 @app.route("/hls/<server>/<channel>/<file>")
 def return_hls_stream_part(server, channel, file):
     return send_file(os.path.join(config["stream_path"], str(server), channel, file))
-
-@app.route("/api/login")
-def login():
-    username = request.headers.get("username", None)
-    passwd = request.headers.get("passwd", None)
-    
-    for user in config["users"]:
-        if user["username"] != username: return Response(status=403)
-        if user["passwd"] != hashlib.sha256(bytes(passwd.encode())).hexdigest(): return Response(status=403)
-    
-        session_id = rand_str(32)
-        
-        login_sessions.append({
-            "session_id": session_id,
-            "user": user,
-        })
-        
-        return session_id
-    
-    return Response(status=403)
-
-@app.route("/api/logout")
-def logout():
-    session_id = request.headers.get("session", None)
-    
-    for login_session in login_sessions:
-        if login_session["session_id"] == session_id:
-            login_sessions.remove(login_session)
-            return Response(status=200)
-    
-    return Response(status=403)
-
-@app.route("/api/get_user")
-def get_user():
-    session_id = request.headers.get("session", None)
-    
-    for login_session in login_sessions:
-        if login_session["session_id"] == session_id:
-            return login_session["user"]
-    
-    return Response(status=403)
 
 @app.route("/server/<server>/get_channels")
 def get_channels(server):
@@ -259,41 +214,6 @@ def get_channels_all():
     
     return channels
 
-@app.route("/server/<server_id>/add_channel")
-def add_channel(server_id):
-    server = servers[int(server_id)]
-    if type(server) == Server:
-        session_id = request.headers.get("session", None)
-        name = request.args.get("name", None)
-        logo = request.args.get("logo", None)
-        url = request.args.get("url", None)
-        
-        for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                server.add_channel(name, logo, url)
-                
-                return Response(status=200)
-    else: return Response(status=500)
-    
-    return Response(status=403)
-
-@app.route("/server/<server_id>/remove_channel")
-def remove_channel(server_id):
-    server = servers[int(server_id)]
-    if type(server) == Server:
-        session_id = request.headers.get("session", None)
-        name = request.args.get("name", None)
-        id = request.args.get("id", None)
-        
-        for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                server.remove_channel(name, id)
-        
-                return Response(status=200)
-    else: return Response(status=500)
-    
-    return Response(status=403)
-
 @app.route("/server/<server>/get_epg")
 def get_epg(server):
     return servers[int(server)].get_epg()
@@ -301,9 +221,9 @@ def get_epg(server):
 @app.route('/server/<server>/health_check')
 def health_check(server):
     try:
-        return Response(200 if servers[server].health_check() else 418)
+        return Response(status=200 if servers[int(server)].health_check() else 418)
     except:
-        return Response(418)
+        return Response(status=418)
 
 @app.route("/server/<server>/get_m3u")
 def get_m3u(server):
@@ -369,50 +289,37 @@ def main():
     config_dir = ("/etc/iptv" if os.system != "nt" else os.path.join(os.environ['appdata'], "iptv")) if not debug else "./"
     print(f"Config dir: {config_dir}")
     print(f"Config file {config_dir}/config.json")
-    
+
     if not os.path.exists(config_dir):
         os.mkdir(config_dir)
     
     if not os.path.exists(f"{config_dir}/config.json"):
         print("Config missing, creating.")
-        config = {"https": True, "proxy": False, "proxy_url": None, "xtream_servers": [], "channels": [], "users": []}
+        config = {"https": False, "proxy": False, "proxy_url": None, "xtream_servers": [], "channels": []}
         
         dump_config()
 
     # Setup.
     servers = []
     config = read_config()
-    
-    setup_servers()
-    
-    # Check if there are any users, if none create one.
-    if len(config["users"]) == 0:
-        print("No users configured.")
-        print("Creating user admin.")
-        passwd = rand_str(32)
-        print(f"Admin passwd: {passwd}")
-        config["users"].append({"username": "admin", "passwd": hashlib.sha256(bytes(passwd.encode())).hexdigest(), "admin": True})
 
-        dump_config()
-    
+    setup_servers()
+
     webserver_thread = threading.Thread(target=start_web_server, daemon=True)
     webserver_thread.start()
-    
-    last_server_update = time.time()
-    
-    while True:
-        time.sleep(60*30) # Update every 30mins.
-        
-        if time.time() - last_server_update > 60*60*24: # Every day.
-            for server in servers:
-                try:
-                    if type(server) == XtreamServer:
-                        server.update_channels()
-                except Exception as e:
-                    print(e)
 
-        last_server_update = time.time()
-        
+    last_server_update = time.time()
+
+    while True:
+        time.sleep(60*60*24) # Every day
+
+        for server in servers:
+            try:
+                if type(server) == XtreamServer:
+                    server.update_channels()
+            except Exception as e:
+                print(e)
+
 def exit_handler():
     print("Exitting.")
 

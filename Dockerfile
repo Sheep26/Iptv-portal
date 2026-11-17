@@ -15,4 +15,4 @@ RUN pip install flask-cors
 
 COPY . .
 
-CMD ["python", "main.py"]
+CMD ["./start.sh"]
