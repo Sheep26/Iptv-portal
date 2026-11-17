@@ -1,20 +1,15 @@
 from flask import Flask, redirect, request, Response, stream_with_context, send_file
 from flask_cors import CORS
-import requests
 import httpx
-import datetime
 import time
 import json
 import threading
 import random
-import subprocess
 import os
 import hashlib
 import string
 import sys
 import atexit
-import shutil
-import gc
 
 servers = []
 config = {}
@@ -46,7 +41,10 @@ class Server:
     
     def get_channels(self):
         return self.channels
-    
+
+    def health_check(self):
+        return True
+
     def add_channel(self, name, logo, url):
         config["channels"].append({
             "id": int(len(config["channels"])),
@@ -70,20 +68,11 @@ class Server:
         
         dump_config()
     
-    def handle_play(self, channel_id, session_id, proxy):
+    def handle_play(self, channel_id, session_id):
         for channel in self.get_channels():
             if channel["id"] == int(channel_id):
-                def generate():
-                    with self.session.stream("GET", channel["url"], follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
-                        for chunk in r.iter_bytes(chunk_size=8192):
-                            yield chunk
-        
-                match proxy:
-                    case 1:
-                        return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
-                    case _:
-                        return redirect(channel["url"], code=301)
-        
+                return redirect(channel["url"], code=301)
+
         return Response(status=500)
 
 class XtreamServer(Server):
@@ -108,6 +97,18 @@ class XtreamServer(Server):
         except Exception as e:
             print(e)
             print(f"Setup for {self.url} failed.")
+
+    def health_check(self):
+        req = self.session.get(f'http://mains.services/player_api.php?username={self.username}&password={self.password}', follow_redirects=False)
+
+        if req.status_code != 200:
+            return False
+
+        json = req.json()
+        if json['user_info']['status'] != 'Active':
+            return False
+
+        return super().health_check()
     
     def get_m3u(self):
         m3u_request = self.session.get(f"{self.url}/get.php?username={self.username}&password={self.password}&type=m3u")
@@ -139,218 +140,18 @@ class XtreamServer(Server):
         
         print(f"{self.url} has {len(self.channels)} channels.")
     
-    def handle_play(self, channel, session_id, proxy):
+    def handle_play(self, channel, session_id):
         stream_url = f"{self.url}/{self.stream_prefix}{self.username}/{self.password}/{channel}{self.stream_suffix}"
         
-        def generate():
-            with self.session.stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
-                for chunk in r.iter_bytes(chunk_size=8192):
-                    yield chunk
-        
-        match proxy:
-            case 1:
-                return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
-            case _:
-                return redirect(stream_url, code=301)
-
-class IPTVServer(Server):
-    def __init__(self, url, id, mac_free_needed=True, mcbash_file=None, run_mcbash=True, extension="ts"):
-        self.url = url
-        self.mcbash_file = mcbash_file if mcbash_file != None else f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2].replace(':', '')}"
-        self.mac_addrs = None
-        self.channels = None
-        self.id = id
-        self.session = httpx.Client()
-        self.user_agent = random.choice(user_agents)
-        self.run_mcbash = run_mcbash
-        self.mac_free_needed = mac_free_needed
-        self.extension = extension
-        self.stream_sessions = []
-        
-        self.setup()
-    
-    def setup(self):
-        print(f"Setup {self.url}")
-        
-        try:
-            # Get mac addrs
-            self.update_macs()
-            
-            if len(self.mac_addrs) == 0:
-                print(f"Setup for {self.url} failed")
-                return
-            
-            # Get channels.
-            self.update_channels()
-            
-            print(f"Setup for {self.url} complete")
-        except httpx.TimeoutException as e:
-            print(e)
-            print(f"Setup for {self.url} failed.")
-    
-    def update_macs(self):
-        self.mac_addrs = self.get_macs_from_mcbash(self.mcbash_file)
-        
-        if len(self.mac_addrs) == 0:
-            open(self.mcbash_file, "w").close()
-            
-            print(f"There a no mac addrs available on {self.url}.")
-            return
-        
-        print(f"There are {len(self.mac_addrs)} mac addrs available on {self.url}.")
-    
-    def update_channels(self):
-        handshake = None
-        
-        while handshake == None:
-            mac = random.choice(self.mac_addrs)["addr"]
-            handshake = self.get_handshake(mac)
-        
-        print(f"Token: {handshake}")
-        
-        headers = {
-            "Authorization": f"Bearer {handshake}",
-            "User-Agent": self.user_agent
-        }
-        
-        cookies = {
-            "mac": mac,
-            "stb_lang": "en",
-            "timezone": "Europe/Amsterdam"
-        }
-        
-        channel_request = self.session.get(f"{self.url}/server/load.php?type=itv&action=get_all_channels", headers=headers, cookies=cookies)
-        if channel_request.status_code == 200:
-            self.channels = json.loads(channel_request.text)["js"]["data"]
-            print(f"{self.url} has {len(self.channels)} channels.")
-
-    def get_handshake(self, mac):
-        request = self.session.get(f"{self.url}/portal.php?action=handshake&type=stb&token=&mac={mac.replace(':', '%3A')}", headers={"User-Agent": self.user_agent})
-        return json.loads(request.text)["js"]["token"] if request.status_code == 200 else None
-
-    def mac_free(self, mac, channel):
-        if not self.mac_free_needed:
-            return True
-        
-        try:
-            with requests.get(f"{self.url}/play/live.php?mac={mac}&stream={channel}&extension={self.extension}", headers={"User-Agent": self.user_agent}, stream=True) as response:
-                print("Response " + str(response.status_code))
-                if response.status_code == 405: return None
-                return response.status_code == 200
-        except requests.exceptions.RequestException as e:
-            print(f"Request failed: {e}")
-            return False
-    
-    def rand_mac(self, channel):
-        while True:
-            mac = random.choice(self.mac_addrs)
-            print(f"Trying mac {mac}")
-                    
-            mac_free = self.mac_free(mac["addr"], channel)
-                    
-            if mac_free == None: return Response(status=500)
-                    
-            if mac_free:
-                print(f"Found mac: {mac}.")
-
-                return mac
-    
-    def handle_play(self, channel, session_id, proxy):
-        user_session = None
-        
-        for stream_session in self.stream_sessions:
-            if stream_session["session_id"] != session_id:
-                continue
-            
-            user_session = stream_session
-            break
-        
-        if user_session == None or user_session["mac"].get(channel, None) == None or not self.mac_free(user_session['mac'][channel]['addr'], channel):
-            if user_session != None:
-                user_session["mac"][channel] = self.rand_mac(channel)
-                #stream_sessions.remove(user_session)
-            else:
-                req_session = None
-                if proxy != 0:
-                    req_session = httpx.Client()
-                
-                user_session = {
-                    "session_id": session_id,
-                    "mac": {channel: self.rand_mac(channel)},
-                    "session": req_session,
-                    "timestamp": time.time()
-                }
-                
-                self.stream_sessions.append(user_session)
-        
-        user_session["timestamp"] = time.time()
-        
-        time.sleep(1)
-        stream_url = f"{self.url}/play/live.php?mac={user_session['mac'][channel]['addr']}&stream={channel}&extension={self.extension}"
-        # Proxy the stream
-        
-        def generate():
-            with user_session['session'].stream("GET", stream_url, follow_redirects=True, headers={"User-Agent": self.user_agent}, timeout=10) as r:
-                for chunk in r.iter_bytes(chunk_size=8192):
-                    yield chunk
-        
-        match proxy:
-            case 1:
-                if user_session['session'] == None:
-                    user_session['session'] = httpx.Client()
-                
-                return Response(stream_with_context(generate()), mimetype='video/mp2t', direct_passthrough=True)
-            case _:
-                return redirect(stream_url, code=301)
-    
-    def get_macs_from_mcbash(self, path) -> list[dict]:
-        if not os.path.exists(path):
-            return []
-        
-        mac_addrs = []
-        with open(path, "r") as f:
-            for line in f.readlines():
-                if line.startswith("00:1A:79"):
-                    newline = line.replace("[", "").replace("]", "").removesuffix("\n").split(" ", 1)
-                    mac = newline[0]
-                    dt = datetime.datetime.strptime(newline[1], "%B %d, %Y, %I:%M %p")
-                    timestamp = dt.timestamp()
-                    if timestamp > time.time():
-                        mac_addrs.append({
-                            "addr": mac,
-                            "timestamp": timestamp
-                        })
-        
-        return mac_addrs
+        return redirect(stream_url, code=301)
 
 def setup_servers():
     if not servers:
         servers.append(Server(0))
-    
-    for entry in config["iptv_servers"]:
-        found = False
-        for server in servers:
-            if type(server) == IPTVServer:
-                if server.url == entry["url"]:
-                    found = True
-                    break
-        
-        if not found:
-            servers.append(IPTVServer(entry["url"], len(servers), entry.get("mac_free_needed", True), entry.get("mcbash_file", None), entry.get("run_mcbash", True), entry.get("extension", True)))
-    
+
     for entry in config["xtream_servers"]:
         servers.append(XtreamServer(entry["url"], len(servers), entry["username"], entry["passwd"], entry.get("stream_prefix", ""), entry.get("stream_suffix", "")))
-    
-    # Stop all existing processes.
-    for proc in mcbash_processes:
-        proc.terminate()
-        mcbash_processes.remove(proc)
 
-    for server in servers:
-        if type(server) == IPTVServer:
-            if server.run_mcbash:
-                mcbash_processes.append(subprocess.Popen(f"./mcbash -u {server.url} -w 3 -b 10 -d 5 -s 0 -t 0 --prefix 00:1A:79", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-    
     last_server_update = time.time()
 
 def web_server():
@@ -493,53 +294,17 @@ def web_server():
         
         return Response(status=403)
     
-    @app.route("/server/remove_iptv_server")
-    def remove_iptv_server():
-        url = request.args.get("url", None)
-        session_id = request.headers.get("session", None)
-        
-        for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                # Remove the server from config["iptv_servers"]
-                config["iptv_servers"] = [server for server in config["iptv_servers"] if server["url"] != url]
-
-                # Remove the server from servers list if it's an IPTVServer and matches the url
-                servers[:] = [x for x in servers if not (isinstance(x, IPTVServer) and x.url == url)]
-                setup_servers()
-                dump_config()
-
-                return Response(status=200)
-        
-        return Response(status=403)
-    
-    @app.route("/server/add_iptv_server")
-    def add_iptv_server():
-        url = request.args["url"]
-        session_id = request.headers.get("session", None)
-        
-        for login_session in login_sessions:
-            if login_session["session_id"] == session_id and login_session["user"]["admin"]:
-                server = {
-                    "url": url,
-                    "mcbash_file": f"{os.getenv('HOME')}/.mcbash/valid_macs_{url.split('/')[2]}",
-                    "run_mcbash": True,
-                }
-                
-                config["iptv_servers"].append(server)
-                
-                os.system(f"touch {server['mcbash_file']}")
-                
-                setup_servers()
-                dump_config()
-                
-                return Response(status=200)
-
-        return Response(status=403)
-    
     @app.route("/server/<server>/get_epg")
     def get_epg(server):
         return servers[int(server)].get_epg()
-    
+
+    @app.route('/server/<server>/health_check')
+    def health_check(server):
+        try:
+            return Response(200 if servers[server].health_check() else 418)
+        except:
+            return Response(418)
+
     @app.route("/server/<server>/get_m3u")
     def get_m3u(server):
         search = request.args.get("search", None)
@@ -579,7 +344,7 @@ def web_server():
     @app.route("/play/<server>/<channel>")
     def play(server, channel):
         print(f"Recieved request {channel} on server {server} with ip {request.headers.get('CF-Connecting-IP', request.headers.get('X-Real-IP', request.remote_addr))}")
-        return servers[int(server)].handle_play(channel, request.headers.get("CF-Connecting-IP", request.headers.get("X-Real-IP", request.remote_addr)), int(request.args.get("proxy", 0)))
+        return servers[int(server)].handle_play(channel, request.headers.get("CF-Connecting-IP", request.headers.get("X-Real-IP", request.remote_addr)))
     
     app.run("0.0.0.0", 8080)
 
@@ -599,7 +364,7 @@ def main():
     global servers
     global config
     global config_dir
-    global mcbash_processes
+    global last_server_update
     
     atexit.register(exit_handler)
     
@@ -613,13 +378,12 @@ def main():
     
     if not os.path.exists(f"{config_dir}/config.json"):
         print("Config missing, creating.")
-        config = {"https": True, "proxy": False, "proxy_url": None, "iptv_servers": [], "xtream_servers": [], "channels": [], "users": []}
+        config = {"https": True, "proxy": False, "proxy_url": None, "xtream_servers": [], "channels": [], "users": []}
         
         dump_config()
     
     # Setup.
     servers = []
-    mcbash_processes = []
     config = read_config()
     
     setup_servers()
@@ -645,23 +409,11 @@ def main():
         if time.time() - last_server_update > 60*60*24: # Every day.
             for server in servers:
                 try:
-                    if type(server) == IPTVServer:
-                        server.update_macs()
-                        server.update_channels()
-                    elif type(server) == XtreamServer:
+                    if type(server) == XtreamServer:
                         server.update_channels()
                 except Exception as e:
                     print(e)
-        
-        for server in servers: # Fuck you good code.
-            if type(server) == IPTVServer:
-                for stream_session in server.stream_sessions:
-                    if time.time() - stream_session["timestamp"] > 60*30: # Delete sessions that haven't been used the past 30 mins.
-                        server.stream_sessions.remove(stream_session)
-                        del stream_session
-        
-        dump_config()
-        
+
         last_server_update = time.time()
         
 def exit_handler():
