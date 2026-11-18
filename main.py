@@ -32,7 +32,6 @@ app.secret_key = rand_str(32)
 
 class Server:
     def __init__(self, id):
-        self.channels = config["channels"]
         self.id = id
         self.session = httpx.Client()
         self.user_agent = random.choice(user_agents)
@@ -44,39 +43,15 @@ class Server:
         return None
     
     def get_channels(self):
-        return self.channels
+        return None
 
     def health_check(self):
         return True
 
-    def add_channel(self, name, logo, url):
-        config["channels"].append({
-            "id": int(len(config["channels"])),
-            "name": name,
-            "logo": logo,
-            "url": url,
-        })
-        
-        dump_config()
-    
-    def remove_channel(self, name=None, id=None):
-        for channel in self.get_channels():
-            if name != None:
-                if channel["name"] == name:
-                    config["channels"].remove(channel)
-                    break
-            if id != None:
-                if channel["id"] == id:
-                    config["channels"].remove(channel)
-                    break
-        
-        dump_config()
-    
-    def handle_play(self, channel_id, session_id):
-        for channel in self.get_channels():
-            if channel["id"] == int(channel_id):
-                return redirect(channel["url"], code=301)
+    def update_channels(self):
+        pass
 
+    def handle_play(self, channel_id, session_id):
         return Response(status=500)
 
 class XtreamServer(Server):
@@ -310,8 +285,7 @@ def main():
 
         for server in servers:
             try:
-                if type(server) == XtreamServer:
-                    server.update_channels()
+                server.update_channels()
             except Exception as e:
                 print(e)
 
